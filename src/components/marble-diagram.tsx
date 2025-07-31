@@ -91,13 +91,15 @@ const MarbleDiagram: React.FC<MarbleDiagramProps> = ({ events, nodes }) => {
                   {node.data.name}
                 </div>
                 <div className="flex-1 h-0.5 bg-slate-700 relative">
-                  {nodeEvents.map((event) => {
+                  {nodeEvents.map((event, eventIndex) => {
                     const timeOffset =
                       event.timestamp - (now - TIMELINE_DURATION);
                     const left = `${(timeOffset / TIMELINE_DURATION) * 100}%`;
                     return (
                       <motion.div
-                        key={event.timestamp + event.nodeId + event.value}
+                        key={`${event.timestamp}-${
+                          event.nodeId
+                        }-${eventIndex}-${JSON.stringify(event.value)}`}
                         className="absolute -top-2 w-4 h-4 rounded-full border-2 flex items-center justify-center"
                         style={{
                           borderColor: marbleColor,

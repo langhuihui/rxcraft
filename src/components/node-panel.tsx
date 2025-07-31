@@ -122,6 +122,14 @@ const observableNodes: NodeType[] = [
     color: "bg-blue-500",
     multipleInputs: true,
   },
+  {
+    id: "probabilistic",
+    name: "概率失败",
+    type: "observable",
+    icon: <Shuffle className="w-4 h-4" />,
+    description: "模拟一定概率失败的异步操作",
+    color: "bg-blue-500",
+  },
 ];
 
 const operatorNodes: NodeType[] = [

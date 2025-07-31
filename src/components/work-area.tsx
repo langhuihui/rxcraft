@@ -27,15 +27,17 @@ import { CheckCircle2, XCircle, Slash } from "lucide-react";
 import { NodeStatus } from "../lib/rx-logic";
 
 // 定义节点数据类型
-interface NodeData {
+export interface NodeData {
   id: string;
   name: string;
   type: "observable" | "operator" | "observer";
   status?: NodeStatus;
+  subscriptions?: Map<string, NodeStatus>;
   isFlashing?: boolean;
   config?: Record<string, any>;
   logs?: any[];
   color?: string;
+  multipleInputs?: boolean;
 }
 
 // 扩展 NodeStatus 类型以包含 "cancelled"
@@ -54,6 +56,9 @@ interface ControlledInputProps {
   type?: string;
   id?: string;
   className?: string;
+  min?: string;
+  max?: string;
+  step?: string;
 }
 
 // 定义受控文本域组件的Props类型
@@ -93,7 +98,7 @@ interface WorkAreaProps {
   onEdgesChange: OnEdgesChange;
   setNodes: React.Dispatch<React.SetStateAction<Node<NodeData>[]>>;
   setEdges: React.Dispatch<React.SetStateAction<Edge[]>>;
-  nodeStatuses: Map<string, ExtendedNodeStatus>;
+  nodeSubscriptions: Map<string, Map<string, NodeStatus>>;
   activeFlashes: Set<string>;
   subscriberLogs: Map<string, any[]>;
   onUpdateNodeConfig: (id: string, config: Record<string, any>) => void;
@@ -294,6 +299,30 @@ const TimeoutConfig = ({ data, onUpdate }: ConfigProps) => (
   </div>
 );
 
+const ProbabilisticConfig = ({ data, onUpdate }: ConfigProps) => (
+  <div className="space-y-2">
+    <Label htmlFor="probabilistic-delay">延迟时间 (ms)</Label>
+    <ControlledInput
+      id="probabilistic-delay"
+      type="number"
+      value={data.config?.delay || 1000}
+      onCommit={(val) => onUpdate({ delay: val })}
+      className="bg-slate-700 border-slate-600 nodrag"
+    />
+    <Label htmlFor="probabilistic-successRate">成功概率 (0-1)</Label>
+    <ControlledInput
+      id="probabilistic-successRate"
+      type="number"
+      min="0"
+      max="1"
+      step="0.1"
+      value={data.config?.successRate || 0.8}
+      onCommit={(val) => onUpdate({ successRate: val })}
+      className="bg-slate-700 border-slate-600 nodrag"
+    />
+  </div>
+);
+
 const CONFIG_MAP: Record<string, React.FC<ConfigProps>> = {
   interval: IntervalConfig,
   array: ArrayConfig,
@@ -305,6 +334,7 @@ const CONFIG_MAP: Record<string, React.FC<ConfigProps>> = {
   retry: RetryConfig,
   timeout: TimeoutConfig,
   fetch: FetchConfig,
+  probabilistic: ProbabilisticConfig,
 };
 
 // --- 自定义节点组件 ---
@@ -324,15 +354,66 @@ const StatusIndicator = ({
   if (status === ("cancelled" as ExtendedNodeStatus)) {
     return <Slash className="w-4 h-4 text-orange-500" />;
   }
+
+  // 根据颜色和状态确定样式
+  const getColorClasses = () => {
+    if (!isFlashing) return "bg-slate-600";
+
+    switch (color) {
+      case "yellow":
+        return "bg-yellow-400 scale-150 shadow-[0_0_12px_4px] shadow-yellow-400/50";
+      case "teal":
+        return "bg-teal-400 scale-150 shadow-[0_0_12px_4px] shadow-teal-400/50";
+      case "blue":
+        return "bg-blue-400 scale-150 shadow-[0_0_12px_4px] shadow-blue-400/50";
+      default:
+        return "bg-yellow-400 scale-150 shadow-[0_0_12px_4px] shadow-yellow-400/50";
+    }
+  };
+
   return (
     <div
-      className={`w-3 h-3 rounded-full transition-all duration-300 ease-out
-        ${
-          isFlashing
-            ? `bg-${color}-400 scale-150 shadow-[0_0_12px_4px] shadow-${color}-400/50`
-            : "bg-slate-600"
-        }`}
+      className={`w-3 h-3 rounded-full transition-all duration-300 ease-out ${getColorClasses()}`}
     ></div>
+  );
+};
+
+// 新增：多订阅状态指示器组件
+const MultiSubscriptionIndicator = ({
+  subscriptions,
+  isFlashing,
+  color = "yellow",
+}: {
+  subscriptions?: Map<string, NodeStatus>;
+  isFlashing?: boolean;
+  color?: string;
+}) => {
+  if (!subscriptions || subscriptions.size === 0) {
+    return (
+      <div className="flex items-center justify-center">
+        <div className="w-3 h-3 rounded-full bg-slate-600"></div>
+      </div>
+    );
+  }
+
+  const subscriptionArray = Array.from(subscriptions.entries());
+
+  return (
+    <div className="flex items-center gap-1">
+      {subscriptionArray.map(([subscriptionId, status]) => (
+        <div
+          key={subscriptionId}
+          className="flex items-center justify-center"
+          title={`${subscriptionId}: ${status}`}
+        >
+          <StatusIndicator
+            status={status}
+            isFlashing={isFlashing}
+            color={color}
+          />
+        </div>
+      ))}
+    </div>
   );
 };
 
@@ -345,16 +426,42 @@ const SubscriberNode = React.memo(({ data }: SubscriberNodeProps) => {
     }
   }, [data.logs]);
 
-  // 使用类型断言确保类型安全
-  const status = data.status as ExtendedNodeStatus;
-  const borderColor =
-    status === "completed"
-      ? "border-green-500"
-      : status === "errored"
-      ? "border-red-500"
-      : status === "cancelled"
-      ? "border-orange-500"
-      : "border-teal-500";
+  // 检查是否有活跃的订阅来确定边框颜色
+  const hasActiveSubscriptions =
+    data.subscriptions &&
+    Array.from(data.subscriptions.values()).some(
+      (status) => status === "active"
+    );
+  const hasCompletedSubscriptions =
+    data.subscriptions &&
+    Array.from(data.subscriptions.values()).some(
+      (status) => status === "completed"
+    );
+  const hasErroredSubscriptions =
+    data.subscriptions &&
+    Array.from(data.subscriptions.values()).some(
+      (status) => status === "errored"
+    );
+  const hasCancelledSubscriptions =
+    data.subscriptions &&
+    Array.from(data.subscriptions.values()).some(
+      (status) => status === "cancelled"
+    );
+
+  // 订阅者节点：如果有日志数据，说明正在接收数据
+  const hasLogs = data.logs && data.logs.length > 0;
+
+  const borderColor = hasErroredSubscriptions
+    ? "border-red-500"
+    : hasCompletedSubscriptions
+    ? "border-green-500"
+    : hasCancelledSubscriptions
+    ? "border-orange-500"
+    : hasActiveSubscriptions
+    ? "border-teal-500"
+    : hasLogs
+    ? "border-teal-500" // 如果有日志数据，显示活跃状态
+    : "border-slate-600";
 
   return (
     <div
@@ -362,12 +469,17 @@ const SubscriberNode = React.memo(({ data }: SubscriberNodeProps) => {
     >
       <div className="p-2 bg-slate-700 rounded-t-md flex items-center justify-between">
         <div className="font-bold text-teal-300">{data.name}</div>
-        <div className="status-indicator w-4 h-4 flex items-center justify-center">
-          <StatusIndicator
-            status={data.status}
-            isFlashing={data.isFlashing}
-            color="teal"
-          />
+        <div className="status-indicator flex items-center justify-center">
+          {hasLogs ? (
+            // 如果有日志数据，显示活跃状态指示器
+            <div className="w-3 h-3 rounded-full bg-teal-400 scale-150 shadow-[0_0_12px_4px] shadow-teal-400/50"></div>
+          ) : (
+            <MultiSubscriptionIndicator
+              subscriptions={data.subscriptions}
+              isFlashing={data.isFlashing}
+              color="teal"
+            />
+          )}
         </div>
       </div>
       <div
@@ -395,18 +507,39 @@ const CustomNode = React.memo(
       onUpdateNodeConfig(id, config);
     };
 
-    // 使用类型断言确保类型安全
-    const status = data.status as ExtendedNodeStatus;
-    const borderColor =
-      status === "completed"
-        ? "border-green-500"
-        : status === "errored"
-        ? "border-red-500"
-        : status === "cancelled"
-        ? "border-orange-500"
-        : data.type === "observable"
-        ? "border-blue-500"
-        : "border-purple-500";
+    // 检查订阅状态来确定边框颜色
+    const hasActiveSubscriptions =
+      data.subscriptions &&
+      Array.from(data.subscriptions.values()).some(
+        (status) => status === "active"
+      );
+    const hasCompletedSubscriptions =
+      data.subscriptions &&
+      Array.from(data.subscriptions.values()).some(
+        (status) => status === "completed"
+      );
+    const hasErroredSubscriptions =
+      data.subscriptions &&
+      Array.from(data.subscriptions.values()).some(
+        (status) => status === "errored"
+      );
+    const hasCancelledSubscriptions =
+      data.subscriptions &&
+      Array.from(data.subscriptions.values()).some(
+        (status) => status === "cancelled"
+      );
+
+    const borderColor = hasErroredSubscriptions
+      ? "border-red-500"
+      : hasCompletedSubscriptions
+      ? "border-green-500"
+      : hasCancelledSubscriptions
+      ? "border-orange-500"
+      : hasActiveSubscriptions
+      ? "border-blue-500"
+      : data.type === "observable"
+      ? "border-blue-500"
+      : "border-purple-500";
 
     // 检查是否是多输入节点
     const isMultiInput = data.multipleInputs === true;
@@ -417,9 +550,9 @@ const CustomNode = React.memo(
       >
         <div className="flex justify-between items-center">
           <div className="font-bold">{data.name}</div>
-          <div className="status-indicator w-4 h-4 flex items-center justify-center">
-            <StatusIndicator
-              status={data.status}
+          <div className="status-indicator flex items-center justify-center">
+            <MultiSubscriptionIndicator
+              subscriptions={data.subscriptions}
               isFlashing={data.isFlashing}
               color="yellow"
             />
@@ -484,7 +617,7 @@ const WorkArea = ({
   onEdgesChange,
   setNodes,
   setEdges,
-  nodeStatuses,
+  nodeSubscriptions,
   activeFlashes,
   subscriberLogs,
   onUpdateNodeConfig,
@@ -548,6 +681,9 @@ const WorkArea = ({
             url: "https://jsonplaceholder.typicode.com/todos/1",
           };
           break;
+        case "probabilistic":
+          defaultConfig = { delay: 1000, successRate: 0.5 };
+          break;
       }
 
       const newNode = {
@@ -565,26 +701,38 @@ const WorkArea = ({
   );
 
   const enrichedNodes = useMemo(() => {
-    return nodes.map((node: Node<NodeData>) => ({
-      ...node,
-      data: {
-        ...node.data,
-        status: (nodeStatuses.get(node.id) || "idle") as ExtendedNodeStatus,
-        isFlashing: activeFlashes.has(node.id),
-        logs:
-          node.data.type === "observer"
-            ? subscriberLogs.get(node.id) || []
-            : [],
-      },
-    }));
-  }, [nodes, nodeStatuses, activeFlashes, subscriberLogs]);
+    return nodes.map((node: Node<NodeData>) => {
+      // 获取节点的所有订阅状态
+      const nodeSubs = nodeSubscriptions.get(node.id);
+      const hasActiveSubscriptions =
+        nodeSubs &&
+        Array.from(nodeSubs.values()).some((status) => status === "active");
+
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          subscriptions: nodeSubs || new Map(),
+          isFlashing: activeFlashes.has(node.id),
+          logs:
+            node.data.type === "observer"
+              ? subscriberLogs.get(node.id) || []
+              : [],
+        },
+      };
+    });
+  }, [nodes, nodeSubscriptions, activeFlashes, subscriberLogs]);
 
   // 为活跃节点的连接线添加动画效果
   const animatedEdges = useMemo(() => {
     return connections.map((edge: Edge) => {
-      const sourceNodeStatus = nodeStatuses.get(edge.source);
-      // 如果源节点是活跃的，则为连接线添加动画
-      const isActive = sourceNodeStatus === "active";
+      const sourceNodeSubs = nodeSubscriptions.get(edge.source);
+      // 如果源节点有任何活跃的订阅，则为连接线添加动画
+      const isActive =
+        sourceNodeSubs &&
+        Array.from(sourceNodeSubs.values()).some(
+          (status) => status === "active"
+        );
 
       // 强制设置动画属性，确保动画效果显示
       return {
@@ -599,7 +747,7 @@ const WorkArea = ({
         // 移除标签，专注于线条动画
       };
     });
-  }, [connections, nodeStatuses]);
+  }, [connections, nodeSubscriptions]);
 
   // 创建一个符合 ReactFlow 要求的 nodeTypes 对象
   const nodeTypes = useMemo<NodeTypes>(

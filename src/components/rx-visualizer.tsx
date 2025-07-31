@@ -4,6 +4,7 @@ import { Play, Pause, Trash2, Code, LayoutGrid } from "lucide-react";
 import NodePanel from "./node-panel";
 import WorkAreaWrapper from "./work-area";
 import { useNodesState, useEdgesState, Node } from "reactflow";
+import { NodeData } from "./work-area";
 import SampleLibrary from "./sample-library";
 import { Sample } from "../lib/samples";
 import { ModeToggle } from "./mode-toggle";
@@ -21,12 +22,13 @@ import { Subject } from "rxjs";
 const RxVisualizer = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isNodePanelOpen, setIsNodePanelOpen] = useState(false);
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node[]>([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
-  const [nodeStatuses, setNodeStatuses] = useState<Map<string, NodeStatus>>(
-    new Map()
-  );
+  // 修改为支持多个订阅状态
+  const [nodeSubscriptions, setNodeSubscriptions] = useState<
+    Map<string, Map<string, NodeStatus>>
+  >(new Map());
   const [activeFlashes, setActiveFlashes] = useState<Set<string>>(new Set());
   const [subscriberLogs, setSubscriberLogs] = useState<Map<string, any[]>>(
     new Map()
@@ -35,14 +37,19 @@ const RxVisualizer = () => {
 
   useEffect(() => {
     if (!isPlaying) {
-      setNodeStatuses(new Map());
+      setNodeSubscriptions(new Map());
       setActiveFlashes(new Set());
       return;
     }
 
     setSubscriberLogs(new Map());
     setDataFlow([]);
-    setNodeStatuses(new Map(nodes.map((n) => [n.id, "idle"])));
+    // 初始化每个节点的订阅状态映射
+    const initialSubscriptions = new Map<string, Map<string, NodeStatus>>();
+    nodes.forEach((node) => {
+      initialSubscriptions.set(node.id, new Map());
+    });
+    setNodeSubscriptions(initialSubscriptions);
 
     const eventObserver = new Subject<RxEvent>();
     const { unsubscribe } = buildRxStream(nodes, edges, eventObserver);
@@ -65,9 +72,25 @@ const RxVisualizer = () => {
     };
 
     const subscription = eventObserver.subscribe((event: RxEvent) => {
+      console.log("RxEvent:", event); // 调试信息
+      console.log("Event type:", event.type); // 调试事件类型
       switch (event.type) {
         case "subscribe":
-          setNodeStatuses((prev) => new Map(prev).set(event.nodeId, "active"));
+          if (event.subscriptionId) {
+            console.log("Subscribe event:", event.nodeId, event.subscriptionId); // 调试信息
+            setNodeSubscriptions((prev) => {
+              const newMap = new Map(prev);
+              const nodeSubs = new Map(newMap.get(event.nodeId) || []);
+              nodeSubs.set(event.subscriptionId!, "active");
+              newMap.set(event.nodeId, nodeSubs);
+              console.log(
+                "Updated subscriptions for node:",
+                event.nodeId,
+                Array.from(nodeSubs.entries())
+              ); // 调试信息
+              return newMap;
+            });
+          }
           break;
         case "next":
           flashNode(event.nodeId);
@@ -77,11 +100,23 @@ const RxVisualizer = () => {
             { ...event, timestamp: now },
           ]);
 
+          // 根据订阅ID确定向哪个下游节点发送数据
           const downstreamEdges = edges.filter(
             (edge) => edge.source === event.nodeId
           );
-          downstreamEdges.forEach((edge) => {
-            const targetNode = nodes.find((n) => n.id === edge.target);
+
+          // 解析订阅ID，确定是第几个订阅
+          const subscriptionNumber = parseInt(
+            event.subscriptionId?.split("_")[1] || "0"
+          );
+
+          // 计算订阅索引（基于订阅者索引）
+          const subscriptionIndex = subscriptionNumber % downstreamEdges.length;
+
+          // 只向对应的下游节点发送数据
+          if (subscriptionIndex < downstreamEdges.length) {
+            const targetEdge = downstreamEdges[subscriptionIndex];
+            const targetNode = nodes.find((n) => n.id === targetEdge.target);
             if (targetNode?.data.type === "observer") {
               flashNode(targetNode.id);
               setSubscriberLogs((prev) => {
@@ -94,25 +129,44 @@ const RxVisualizer = () => {
                 return newLogs;
               });
             }
-          });
+          }
           break;
         case "complete":
-          setNodeStatuses((prev) =>
-            new Map(prev).set(event.nodeId, "completed")
-          );
+          if (event.subscriptionId) {
+            setNodeSubscriptions((prev) => {
+              const newMap = new Map(prev);
+              const nodeSubs = new Map(newMap.get(event.nodeId) || []);
+              nodeSubs.set(event.subscriptionId!, "completed");
+              newMap.set(event.nodeId, nodeSubs);
+              return newMap;
+            });
+          }
           break;
         case "error":
-          setNodeStatuses((prev) => new Map(prev).set(event.nodeId, "errored"));
+          if (event.subscriptionId) {
+            setNodeSubscriptions((prev) => {
+              const newMap = new Map(prev);
+              const nodeSubs = new Map(newMap.get(event.nodeId) || []);
+              nodeSubs.set(event.subscriptionId!, "errored");
+              newMap.set(event.nodeId, nodeSubs);
+              return newMap;
+            });
+          }
           break;
         case "unsubscribe":
-          setNodeStatuses((prev) => {
-            const currentStatus = prev.get(event.nodeId);
-            // Only mark as cancelled if it was active and not already completed/errored
-            if (currentStatus === "active") {
-              return new Map(prev).set(event.nodeId, "cancelled");
-            }
-            return prev;
-          });
+          if (event.subscriptionId) {
+            setNodeSubscriptions((prev) => {
+              const newMap = new Map(prev);
+              const nodeSubs = new Map(newMap.get(event.nodeId) || []);
+              const currentStatus = nodeSubs.get(event.subscriptionId!);
+              // Only mark as cancelled if it was active and not already completed/errored
+              if (currentStatus === "active") {
+                nodeSubs.set(event.subscriptionId!, "cancelled");
+                newMap.set(event.nodeId, nodeSubs);
+              }
+              return newMap;
+            });
+          }
           break;
       }
     });
@@ -135,8 +189,14 @@ const RxVisualizer = () => {
           return node;
         })
       );
+
+      // 如果正在播放状态，重新启动以应用新配置
+      if (isPlaying) {
+        setIsPlaying(false);
+        setTimeout(() => setIsPlaying(true), 50);
+      }
     },
-    [setNodes]
+    [setNodes, isPlaying]
   );
 
   const handlePlay = useCallback(() => {
@@ -149,7 +209,7 @@ const RxVisualizer = () => {
     setEdges([]);
     setSubscriberLogs(new Map());
     setDataFlow([]);
-    setNodeStatuses(new Map());
+    setNodeSubscriptions(new Map()); // Reset subscriptions on reset
   }, [setNodes, setEdges]);
 
   const handleSampleSelect = (sample: Sample) => {
@@ -229,7 +289,7 @@ const RxVisualizer = () => {
                   onEdgesChange={onEdgesChange}
                   setNodes={setNodes}
                   setEdges={setEdges}
-                  nodeStatuses={nodeStatuses}
+                  nodeSubscriptions={nodeSubscriptions}
                   activeFlashes={activeFlashes}
                   subscriberLogs={subscriberLogs}
                   onUpdateNodeConfig={updateNodeConfig}

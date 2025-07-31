@@ -43,6 +43,7 @@ export type RxEventType =
 export interface RxEvent {
   type: RxEventType;
   nodeId: string;
+  subscriptionId?: string; // 新增：订阅ID
   value?: any;
   error?: any;
 }
@@ -54,6 +55,7 @@ export const buildRxStream = (
 ) => {
   const nodeObservables = new Map<string, Observable<any>>();
   const subscriptions: Subscription[] = [];
+  let subscriptionCounter = 0; // 新增：订阅计数器
 
   // 构建节点连接关系图
   const nodeConnections = new Map<string, string[]>();
@@ -72,18 +74,18 @@ export const buildRxStream = (
 
       switch (node.data.id) {
         case "click":
-          source$ = fromEvent(document, "click").pipe(
-            map((e: MouseEvent) => ({ x: e.clientX, y: e.clientY }))
+          source$ = fromEvent<MouseEvent>(document, "click").pipe(
+            map((e) => ({ x: e.clientX, y: e.clientY }))
           );
           break;
         case "mousemove":
-          source$ = fromEvent(document, "mousemove").pipe(
-            map((e: MouseEvent) => ({ x: e.clientX, y: e.clientY }))
+          source$ = fromEvent<MouseEvent>(document, "mousemove").pipe(
+            map((e) => ({ x: e.clientX, y: e.clientY }))
           );
           break;
         case "keydown":
-          source$ = fromEvent(document, "keydown").pipe(
-            map((e: KeyboardEvent) => e.key)
+          source$ = fromEvent<KeyboardEvent>(document, "keydown").pipe(
+            map((e) => e.key)
           );
           break;
         case "interval":
@@ -111,6 +113,31 @@ export const buildRxStream = (
         case "never":
           source$ = NEVER;
           break;
+        case "probabilistic":
+          // 自定义概率失败的Observable
+          const delay = node.data.config?.delay || 1000;
+          const successRate = node.data.config?.successRate || 0.5;
+
+          source$ = new Observable(observer => {
+            const timeoutId = setTimeout(() => {
+              const random = Math.random();
+              if (random <= successRate) {
+                observer.next({
+                  success: true,
+                  value: `成功! (概率: ${(successRate * 100).toFixed(1)}%, 延迟: ${delay}ms)`,
+                  timestamp: new Date().toISOString()
+                });
+                observer.complete();
+              } else {
+                observer.error(new Error(`模拟失败! (概率: ${((1 - successRate) * 100).toFixed(1)}%, 延迟: ${delay}ms)`));
+              }
+            }, delay);
+
+            return () => {
+              clearTimeout(timeoutId);
+            };
+          });
+          break;
         case "merge":
         case "race":
           // 这些特殊的Observable需要在后面处理，因为它们依赖于其他Observable
@@ -120,21 +147,26 @@ export const buildRxStream = (
           source$ = EMPTY;
       }
 
-      // 添加生命周期事件报告
-      source$ = source$.pipe(
-        tap({
-          next: (value) =>
-            eventSubject.next({ type: "next", nodeId: node.id, value }),
-          error: (error) =>
-            eventSubject.next({ type: "error", nodeId: node.id, error }),
-          complete: () =>
-            eventSubject.next({ type: "complete", nodeId: node.id }),
-        }),
-        finalize(() =>
-          eventSubject.next({ type: "unsubscribe", nodeId: node.id })
-        ),
-        share()
-      );
+      // 添加生命周期事件报告（只在没有下游订阅者时）
+      const downstreamEdges = edges.filter((edge) => edge.source === node.id);
+      if (downstreamEdges.length === 0) {
+        source$ = source$.pipe(
+          tap({
+            next: (value) =>
+              eventSubject.next({ type: "next", nodeId: node.id, value }),
+            error: (error) =>
+              eventSubject.next({ type: "error", nodeId: node.id, error }),
+            complete: () =>
+              eventSubject.next({ type: "complete", nodeId: node.id }),
+          }),
+          finalize(() =>
+            eventSubject.next({ type: "unsubscribe", nodeId: node.id })
+          )
+        );
+      }
+
+      // 移除 share() 以允许创建独立的订阅实例
+      // source$ = source$.pipe(share());
 
       nodeObservables.set(node.id, source$);
     });
@@ -161,21 +193,26 @@ export const buildRxStream = (
           source$ = race(...inputObservables);
         }
 
-        // 添加生命周期事件报告
-        source$ = source$.pipe(
-          tap({
-            next: (value) =>
-              eventSubject.next({ type: "next", nodeId: node.id, value }),
-            error: (error) =>
-              eventSubject.next({ type: "error", nodeId: node.id, error }),
-            complete: () =>
-              eventSubject.next({ type: "complete", nodeId: node.id }),
-          }),
-          finalize(() =>
-            eventSubject.next({ type: "unsubscribe", nodeId: node.id })
-          ),
-          share()
-        );
+        // 添加生命周期事件报告（只在没有下游订阅者时）
+        const downstreamEdges = edges.filter((edge) => edge.source === node.id);
+        if (downstreamEdges.length === 0) {
+          source$ = source$.pipe(
+            tap({
+              next: (value) =>
+                eventSubject.next({ type: "next", nodeId: node.id, value }),
+              error: (error) =>
+                eventSubject.next({ type: "error", nodeId: node.id, error }),
+              complete: () =>
+                eventSubject.next({ type: "complete", nodeId: node.id }),
+            }),
+            finalize(() =>
+              eventSubject.next({ type: "unsubscribe", nodeId: node.id })
+            )
+          );
+        }
+
+        // 移除 share() 以允许创建独立的订阅实例
+        // source$ = source$.pipe(share());
 
         nodeObservables.set(node.id, source$);
       }
@@ -239,8 +276,9 @@ export const buildRxStream = (
         }),
         finalize(() =>
           eventSubject.next({ type: "unsubscribe", nodeId: node.id })
-        ),
-        share()
+        )
+        // 移除 share() 以允许创建独立的订阅实例
+        // share()
       );
 
       nodeObservables.set(nodeId, result$);
@@ -259,7 +297,7 @@ export const buildRxStream = (
             const mapFn = new Function(
               "x",
               `return (${node.data.config?.func || "x => x"})(x)`
-            );
+            ) as (x: any) => any;
             result$ = source$.pipe(map(mapFn));
           } catch (e) {
             result$ = source$.pipe(
@@ -272,7 +310,7 @@ export const buildRxStream = (
             const filterFn = new Function(
               "x",
               `return (${node.data.config?.func || "x => true"})(x)`
-            );
+            ) as (x: any) => boolean;
             result$ = source$.pipe(filter(filterFn));
           } catch (e) {
             result$ = source$; // 如果过滤函数有错误，就不过滤
@@ -297,21 +335,26 @@ export const buildRxStream = (
           result$ = source$;
       }
 
-      // 添加生命周期事件报告
-      result$ = result$.pipe(
-        tap({
-          next: (value) =>
-            eventSubject.next({ type: "next", nodeId: node.id, value }),
-          error: (error) =>
-            eventSubject.next({ type: "error", nodeId: node.id, error }),
-          complete: () =>
-            eventSubject.next({ type: "complete", nodeId: node.id }),
-        }),
-        finalize(() =>
-          eventSubject.next({ type: "unsubscribe", nodeId: node.id })
-        ),
-        share()
-      );
+      // 添加生命周期事件报告（只在没有下游订阅者时）
+      const downstreamEdges = edges.filter((edge) => edge.source === node.id);
+      if (downstreamEdges.length === 0) {
+        result$ = result$.pipe(
+          tap({
+            next: (value) =>
+              eventSubject.next({ type: "next", nodeId: node.id, value }),
+            error: (error) =>
+              eventSubject.next({ type: "error", nodeId: node.id, error }),
+            complete: () =>
+              eventSubject.next({ type: "complete", nodeId: node.id }),
+          }),
+          finalize(() =>
+            eventSubject.next({ type: "unsubscribe", nodeId: node.id })
+          )
+        );
+      }
+
+      // 移除 share() 以允许创建独立的订阅实例
+      // result$ = result$.pipe(share());
 
       nodeObservables.set(nodeId, result$);
       return result$;
@@ -325,51 +368,90 @@ export const buildRxStream = (
       processOperator(node.id);
     });
 
-  // 订阅所有终端节点（没有出边的节点）
-  const outgoingConnections = new Set<string>();
-  edges.forEach((edge) => {
-    outgoingConnections.add(edge.source);
+  // 只为有下游订阅者的节点创建订阅
+  const nodeSubscriptions = new Map<string, string[]>();
+
+  // 计算每个节点的下游订阅者数量
+  const downstreamCount = new Map<string, number>();
+  nodes.forEach((node) => {
+    const downstreamEdges = edges.filter((edge) => edge.source === node.id);
+    downstreamCount.set(node.id, downstreamEdges.length);
+    console.log(`Node ${node.id} has ${downstreamEdges.length} downstream subscribers`);
   });
 
-  const terminalNodes = Array.from(nodeObservables.keys()).filter(
-    (nodeId) => !outgoingConnections.has(nodeId)
-  );
+  // 计算每个节点的实际订阅数量（基于所有下游订阅者的总数）
+  const nodeSubscriptionCounts = new Map<string, number>();
 
-  terminalNodes.forEach((nodeId) => {
-    const observable$ = nodeObservables.get(nodeId);
-    if (observable$) {
-      eventSubject.next({ type: "subscribe", nodeId });
-      const subscription = observable$.subscribe({
-        next: () => { },
-        error: () => { },
-        complete: () => { },
-      });
-      subscriptions.push(subscription);
+  // 从订阅者开始，向上传播订阅数量
+  const calculateSubscriptionCounts = (nodeId: string): number => {
+    if (nodeSubscriptionCounts.has(nodeId)) {
+      return nodeSubscriptionCounts.get(nodeId)!;
+    }
+
+    const downstreamEdges = edges.filter((edge) => edge.source === nodeId);
+    if (downstreamEdges.length === 0) {
+      // 如果是订阅者节点，返回1
+      const node = nodes.find(n => n.id === nodeId);
+      if (node?.data.type === "observer") {
+        nodeSubscriptionCounts.set(nodeId, 1);
+        return 1;
+      }
+      return 0;
+    }
+
+    // 计算所有下游节点的订阅数量总和
+    const totalSubscriptions = downstreamEdges.reduce((total, edge) => {
+      return total + calculateSubscriptionCounts(edge.target);
+    }, 0);
+
+    nodeSubscriptionCounts.set(nodeId, totalSubscriptions);
+    return totalSubscriptions;
+  };
+
+  // 计算所有节点的订阅数量
+  nodes.forEach(node => {
+    calculateSubscriptionCounts(node.id);
+  });
+
+  // 为每个节点创建订阅
+  nodes.forEach((node) => {
+    const subscriptionCount = nodeSubscriptionCounts.get(node.id) || 0;
+    if (subscriptionCount > 0) {
+      const observable$ = nodeObservables.get(node.id);
+      if (!observable$) return;
+
+      // 为每个订阅创建一个订阅实例
+      for (let i = 0; i < subscriptionCount; i++) {
+        const subscriptionId = `sub_${subscriptionCounter++}`;
+        console.log(`Creating subscription for ${node.id} with ID ${subscriptionId} (subscription ${i + 1}/${subscriptionCount})`);
+
+        const subscription = observable$.subscribe({
+          next: (value) => {
+            eventSubject.next({ type: "next", nodeId: node.id, value, subscriptionId });
+          },
+          error: (error) => {
+            eventSubject.next({ type: "error", nodeId: node.id, error, subscriptionId });
+          },
+          complete: () => {
+            eventSubject.next({ type: "complete", nodeId: node.id, subscriptionId });
+          },
+        });
+        subscriptions.push(subscription);
+
+        // 发出 subscribe 事件
+        const subscribeEvent = {
+          type: "subscribe",
+          nodeId: node.id,
+          subscriptionId: subscriptionId
+        };
+        console.log("Emitting subscribe event:", subscribeEvent);
+        // 延迟发出 subscribe 事件，确保 rx-visualizer.tsx 已经订阅
+        setTimeout(() => {
+          eventSubject.next(subscribeEvent);
+        }, 0);
+      }
     }
   });
-
-  // 订阅所有观察者节点
-  nodes
-    .filter((node) => node.data.type === "observer")
-    .forEach((node) => {
-      const inputs = nodeConnections.get(node.id) || [];
-      if (inputs.length > 0) {
-        const input = inputs[0];
-        const observable$ = nodeObservables.get(input);
-        if (observable$) {
-          eventSubject.next({ type: "subscribe", nodeId: node.id });
-          const subscription = observable$.subscribe({
-            next: (value) =>
-              eventSubject.next({ type: "next", nodeId: node.id, value }),
-            error: (error) =>
-              eventSubject.next({ type: "error", nodeId: node.id, error }),
-            complete: () =>
-              eventSubject.next({ type: "complete", nodeId: node.id }),
-          });
-          subscriptions.push(subscription);
-        }
-      }
-    });
 
   return {
     stream$: eventSubject.asObservable(),

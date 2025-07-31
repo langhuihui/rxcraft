@@ -10,6 +10,83 @@ export interface Sample {
 
 export const defaultSamples: Sample[] = [
   {
+    id: "multi-subscription",
+    name: "多订阅示例",
+    description: "演示一个Observable被多个订阅者订阅的情况，每个订阅都有独立的状态指示器。",
+    nodes: [
+      {
+        id: "interval-1",
+        type: "custom",
+        position: { x: 100, y: 100 },
+        data: {
+          id: "interval",
+          name: "间隔",
+          type: "observable",
+          description: "定期发出递增数字",
+          color: "bg-blue-500",
+          config: { period: 1000 }
+        },
+      },
+      {
+        id: "map-1",
+        type: "custom",
+        position: { x: 400, y: 100 },
+        data: {
+          id: "map",
+          name: "Map",
+          type: "operator",
+          description: "转换每个发出的值",
+          color: "bg-purple-500",
+          config: { func: "x => x * 2" }
+        },
+      },
+      {
+        id: "subscriber-1",
+        type: "subscriber",
+        position: { x: 700, y: 50 },
+        data: {
+          id: "subscriber",
+          name: "订阅者1",
+          type: "observer",
+          description: "第一个订阅者",
+          color: "bg-teal-500"
+        },
+      },
+      {
+        id: "subscriber-2",
+        type: "subscriber",
+        position: { x: 700, y: 150 },
+        data: {
+          id: "subscriber",
+          name: "订阅者2",
+          type: "observer",
+          description: "第二个订阅者",
+          color: "bg-teal-500"
+        },
+      }
+    ],
+    edges: [
+      {
+        id: "e1-2",
+        source: "interval-1",
+        target: "map-1",
+        animated: true,
+      },
+      {
+        id: "e2-3",
+        source: "map-1",
+        target: "subscriber-1",
+        animated: true,
+      },
+      {
+        id: "e2-4",
+        source: "map-1",
+        target: "subscriber-2",
+        animated: true,
+      }
+    ],
+  },
+  {
     id: "basic-map",
     name: "基础 Map 示例",
     description: "演示如何使用 map 操作符将一个数字流乘以2。",
@@ -549,6 +626,55 @@ export const defaultSamples: Sample[] = [
       { id: "e8-1", source: "interval-9", target: "map-5", animated: true },
       { id: "e8-2", source: "map-5", target: "timeout-1", animated: true },
       { id: "e8-3", source: "timeout-1", target: "subscriber-8", animated: true }
+    ],
+  },
+  {
+    id: "probabilistic-example",
+    name: "概率失败 Observable",
+    description: "演示自定义的概率失败 Observable，可以配置延迟时间和成功概率。",
+    nodes: [
+      {
+        id: "probabilistic-1",
+        type: "custom",
+        position: { x: 100, y: 150 },
+        data: {
+          id: "probabilistic",
+          name: "概率失败",
+          type: "observable",
+          description: "模拟一定概率失败的异步操作",
+          color: "bg-blue-500",
+          config: { delay: 2000, successRate: 0.7 }
+        },
+      },
+      {
+        id: "retry-2",
+        type: "custom",
+        position: { x: 400, y: 150 },
+        data: {
+          id: "retry",
+          name: "Retry(3)",
+          type: "operator",
+          description: "在发生错误时重试",
+          color: "bg-purple-500",
+          config: { count: 3 }
+        },
+      },
+      {
+        id: "subscriber-10",
+        type: "subscriber",
+        position: { x: 700, y: 150 },
+        data: {
+          id: "subscriber",
+          name: "订阅者",
+          type: "observer",
+          description: "显示接收到的值",
+          color: "bg-teal-500"
+        },
+      }
+    ],
+    edges: [
+      { id: "e10-1", source: "probabilistic-1", target: "retry-2", animated: true },
+      { id: "e10-2", source: "retry-2", target: "subscriber-10", animated: true }
     ],
   },
   {
