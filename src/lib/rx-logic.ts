@@ -48,6 +48,21 @@ export interface RxEvent {
   error?: any;
 }
 
+// 判断 Observable 是否为热 Observable 的函数
+const isHotObservable = (observableId: string): boolean => {
+  // 热 Observable：事件流、定时器等，不依赖于订阅者
+  const hotObservables = [
+    "click",      // DOM 事件
+    "mousemove",  // DOM 事件
+    "keydown",    // DOM 事件
+    "interval",   // 定时器
+    "merge",      // 合并操作
+    "race",       // 竞争操作
+  ];
+  
+  return hotObservables.includes(observableId);
+};
+
 export const buildRxStream = (
   nodes: Node[],
   edges: Edge[],
@@ -257,9 +272,6 @@ export const buildRxStream = (
         case "switchMapTo":
           result$ = primarySource$.pipe(switchMapTo(secondarySource$));
           break;
-        case "zip":
-          result$ = zip(primarySource$, secondarySource$);
-          break;
         default:
           result$ = primarySource$;
       }
@@ -461,3 +473,6 @@ export const buildRxStream = (
     },
   };
 };
+
+// 导出判断冷热 Observable 的函数
+export { isHotObservable };

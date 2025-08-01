@@ -27,7 +27,10 @@ import {
   Combine,
   Hourglass,
   Shuffle,
+  Flame,
+  Snowflake,
 } from "lucide-react";
+import { isHotObservable } from "../lib/rx-logic";
 
 interface NodeType {
   id: string;
@@ -258,42 +261,69 @@ const NodePanel = () => {
 
   const renderNodeList = (nodes: NodeType[]) => (
     <div className="space-y-2">
-      {nodes.map((node) => (
-        <Card
-          key={node.id}
-          className="cursor-grab active:cursor-grabbing bg-slate-800 border-slate-700 hover:bg-slate-750 transition-colors"
-          draggable
-          onDragStart={(e) => handleDragStart(e, node)}
-        >
-          <CardContent className="p-3">
-            <div className="flex items-center space-x-3">
-              <div className={`p-2 rounded-lg ${node.color}`}>{node.icon}</div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-medium text-white">{node.name}</h4>
-                  <Badge
-                    variant="secondary"
-                    className={`text-xs ${
-                      node.type === "observable"
-                        ? "bg-blue-900 text-blue-200"
-                        : node.type === "operator"
-                        ? "bg-purple-900 text-purple-200"
-                        : "bg-teal-900 text-teal-200"
-                    }`}
-                  >
-                    {node.multipleInputs
-                      ? "多输入"
-                      : node.type.charAt(0).toUpperCase() + node.type.slice(1)}
-                  </Badge>
+      {nodes.map((node) => {
+        const isHot =
+          node.type === "observable" ? isHotObservable(node.id) : false;
+
+        return (
+          <Card
+            key={node.id}
+            className="cursor-grab active:cursor-grabbing bg-slate-800 border-slate-700 hover:bg-slate-750 transition-colors"
+            draggable
+            onDragStart={(e) => handleDragStart(e, node)}
+          >
+            <CardContent className="p-3">
+              <div className="flex items-center space-x-3">
+                <div className={`p-2 rounded-lg ${node.color}`}>
+                  {node.icon}
                 </div>
-                <p className="text-sm text-slate-400 mt-1">
-                  {node.description}
-                </p>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <h4 className="font-medium text-white">{node.name}</h4>
+                      {node.type === "observable" && (
+                        <div className="flex items-center space-x-1">
+                          {isHot ? (
+                            <div className="flex items-center space-x-1">
+                              <Flame className="w-3 h-3 text-orange-500" />
+                              <span className="text-xs text-orange-400">
+                                热
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center space-x-1">
+                              <Snowflake className="w-3 h-3 text-cyan-500" />
+                              <span className="text-xs text-cyan-400">冷</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <Badge
+                      variant="secondary"
+                      className={`text-xs ${
+                        node.type === "observable"
+                          ? "bg-blue-900 text-blue-200"
+                          : node.type === "operator"
+                          ? "bg-purple-900 text-purple-200"
+                          : "bg-teal-900 text-teal-200"
+                      }`}
+                    >
+                      {node.multipleInputs
+                        ? "多输入"
+                        : node.type.charAt(0).toUpperCase() +
+                          node.type.slice(1)}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-slate-400 mt-1">
+                    {node.description}
+                  </p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 

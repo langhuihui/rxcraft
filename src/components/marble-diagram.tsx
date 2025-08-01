@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useState } from "react";
+import React, { useMemo, useEffect, useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { Node } from "reactflow";
 
@@ -35,6 +35,7 @@ const colorMap: { [key: string]: string } = {
 
 const MarbleDiagram: React.FC<MarbleDiagramProps> = ({ events, nodes }) => {
   const [now, setNow] = useState(Date.now());
+  const renderedMarbles = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 50);
@@ -61,6 +62,29 @@ const MarbleDiagram: React.FC<MarbleDiagramProps> = ({ events, nodes }) => {
     return Array.from(timelines.values());
   }, [visibleEvents, nodes]);
 
+  // 清理过期的弹珠记录
+  useEffect(() => {
+    const visibleStartTime = now - TIMELINE_DURATION;
+    const currentKeys = new Set<string>();
+
+    nodeTimelines.forEach(({ node, events: nodeEvents }) => {
+      nodeEvents.forEach((event, eventIndex) => {
+        const eventSignature = `${event.nodeId}-${
+          event.timestamp
+        }-${JSON.stringify(event.value)}`;
+        const key = `${eventSignature}-${eventIndex}`;
+        currentKeys.add(key);
+      });
+    });
+
+    // 移除不再可见的弹珠记录
+    renderedMarbles.current.forEach((key) => {
+      if (!currentKeys.has(key)) {
+        renderedMarbles.current.delete(key);
+      }
+    });
+  }, [nodeTimelines, now]);
+
   if (nodeTimelines.length === 0) {
     return (
       <div className="h-full w-full bg-slate-900 flex items-center justify-center text-slate-500">
@@ -75,7 +99,6 @@ const MarbleDiagram: React.FC<MarbleDiagramProps> = ({ events, nodes }) => {
         {nodeTimelines.map(({ node, events: nodeEvents }, index) => {
           const top = `${(index / nodeTimelines.length) * 100}%`;
           const height = `${(1 / nodeTimelines.length) * 100}%`;
-          const marbleColor = colorMap[node.data.color] || "#6b7280";
 
           return (
             <div
@@ -95,21 +118,37 @@ const MarbleDiagram: React.FC<MarbleDiagramProps> = ({ events, nodes }) => {
                     const timeOffset =
                       event.timestamp - (now - TIMELINE_DURATION);
                     const left = `${(timeOffset / TIMELINE_DURATION) * 100}%`;
+                    const marbleColor = colorMap[node.data.color] || "#6b7280";
+
+                    // 为每个事件创建唯一标识符
+                    const eventSignature = `${event.nodeId}-${
+                      event.timestamp
+                    }-${JSON.stringify(event.value)}`;
+                    const key = `${eventSignature}-${eventIndex}`;
+
+                    // 检查这个弹珠是否已经渲染过
+                    const isNewMarble = !renderedMarbles.current.has(key);
+                    if (isNewMarble) {
+                      renderedMarbles.current.add(key);
+                    }
+
                     return (
                       <motion.div
-                        key={`${event.timestamp}-${
-                          event.nodeId
-                        }-${eventIndex}-${JSON.stringify(event.value)}`}
+                        key={key}
                         className="absolute -top-2 w-4 h-4 rounded-full border-2 flex items-center justify-center"
                         style={{
                           borderColor: marbleColor,
                           backgroundColor: marbleColor,
                           left,
                         }}
-                        initial={{ scale: 0, y: -10 }}
+                        initial={
+                          isNewMarble
+                            ? { scale: 0, y: -10 }
+                            : { scale: 1, y: 0 }
+                        }
                         animate={{ scale: 1, y: 0 }}
                         transition={{
-                          duration: 0.2,
+                          duration: isNewMarble ? 0.2 : 0,
                           type: "spring",
                           stiffness: 300,
                           damping: 20,

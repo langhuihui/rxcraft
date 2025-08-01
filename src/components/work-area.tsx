@@ -23,8 +23,8 @@ import "reactflow/dist/style.css";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
-import { CheckCircle2, XCircle, Slash } from "lucide-react";
-import { NodeStatus } from "../lib/rx-logic";
+import { CheckCircle2, XCircle, Slash, Flame, Snowflake } from "lucide-react";
+import { NodeStatus, isHotObservable } from "../lib/rx-logic";
 
 // 定义节点数据类型
 export interface NodeData {
@@ -544,12 +544,32 @@ const CustomNode = React.memo(
     // 检查是否是多输入节点
     const isMultiInput = data.multipleInputs === true;
 
+    // 检查是否为热 Observable
+    const isHot = data.type === "observable" ? isHotObservable(data.id) : false;
+
     return (
       <div
         className={`px-4 py-2 shadow-md rounded-md border-2 ${borderColor} bg-slate-800 text-white w-64`}
       >
         <div className="flex justify-between items-center">
-          <div className="font-bold">{data.name}</div>
+          <div className="flex items-center space-x-2">
+            <div className="font-bold">{data.name}</div>
+            {data.type === "observable" && (
+              <div className="flex items-center space-x-1">
+                {isHot ? (
+                  <div className="flex items-center space-x-1">
+                    <Flame className="w-3 h-3 text-orange-500" />
+                    <span className="text-xs text-orange-400">热</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-1">
+                    <Snowflake className="w-3 h-3 text-cyan-500" />
+                    <span className="text-xs text-cyan-400">冷</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
           <div className="status-indicator flex items-center justify-center">
             <MultiSubscriptionIndicator
               subscriptions={data.subscriptions}
@@ -607,6 +627,20 @@ const CustomNode = React.memo(
     );
   }
 );
+
+// 定义 nodeTypes 对象，移到组件外部以避免重新创建
+const createNodeTypes = (
+  onUpdateNodeConfig: (id: string, config: any) => void
+): NodeTypes => ({
+  custom: (props: NodeProps) => (
+    <CustomNode
+      id={props.id}
+      data={props.data as NodeData}
+      onUpdateNodeConfig={onUpdateNodeConfig}
+    />
+  ),
+  subscriber: SubscriberNode as any,
+});
 
 // --- 主工作区组件 ---
 
@@ -749,18 +783,9 @@ const WorkArea = ({
     });
   }, [connections, nodeSubscriptions]);
 
-  // 创建一个符合 ReactFlow 要求的 nodeTypes 对象
-  const nodeTypes = useMemo<NodeTypes>(
-    () => ({
-      custom: (props: NodeProps) => (
-        <CustomNode
-          id={props.id}
-          data={props.data as NodeData}
-          onUpdateNodeConfig={onUpdateNodeConfig}
-        />
-      ),
-      subscriber: SubscriberNode as any,
-    }),
+  // 使用 useMemo 来缓存 nodeTypes，避免重复创建
+  const nodeTypes = useMemo(
+    () => createNodeTypes(onUpdateNodeConfig),
     [onUpdateNodeConfig]
   );
 
@@ -783,7 +808,33 @@ const WorkArea = ({
         }}
       >
         <Background color="#4a5568" gap={16} />
-        <MiniMap nodeColor={(n) => n.data.color || "#888"} />
+        <MiniMap
+          nodeColor={(n) => {
+            const color = n.data.color;
+            if (!color) return "#888";
+
+            // 颜色映射表，将CSS类名转换为十六进制颜色
+            const colorMap: { [key: string]: string } = {
+              "bg-blue-500": "#3b82f6",
+              "bg-purple-500": "#8b5cf6",
+              "bg-purple-600": "#7c3aed",
+              "bg-purple-700": "#6d28d9",
+              "bg-green-500": "#22c55e",
+              "bg-green-600": "#16a34a",
+              "bg-green-700": "#15803d",
+              "bg-yellow-500": "#eab308",
+              "bg-yellow-600": "#ca8a04",
+              "bg-yellow-700": "#a16207",
+              "bg-cyan-500": "#06b6d4",
+              "bg-red-500": "#ef4444",
+              "bg-pink-500": "#ec4899",
+              "bg-gray-500": "#6b7280",
+              "bg-gray-600": "#4b5563",
+            };
+
+            return colorMap[color] || color;
+          }}
+        />
         <Controls />
       </ReactFlow>
     </div>

@@ -279,8 +279,8 @@ export const defaultSamples: Sample[] = [
       }
     ],
     edges: [
-      { id: "e3-1", source: "interval-3", target: "merge-1", animated: true },
-      { id: "e3-2", source: "interval-4", target: "merge-1", animated: true, targetHandle: "secondary" },
+      { id: "e3-1", source: "interval-3", target: "merge-1", animated: true, targetHandle: "input-1" },
+      { id: "e3-2", source: "interval-4", target: "merge-1", animated: true, targetHandle: "input-2" },
       { id: "e3-3", source: "merge-1", target: "map-2", animated: true },
       { id: "e3-4", source: "map-2", target: "subscriber-3", animated: true }
     ],
@@ -356,9 +356,9 @@ export const defaultSamples: Sample[] = [
       }
     ],
     edges: [
-      { id: "e4-1", source: "interval-5", target: "takeuntil-1", animated: true },
+      { id: "e4-1", source: "interval-5", target: "takeuntil-1", animated: true, targetHandle: "input-1" },
       { id: "e4-2", source: "interval-6", target: "take-2", animated: true },
-      { id: "e4-3", source: "take-2", target: "takeuntil-1", animated: true, targetHandle: "secondary" },
+      { id: "e4-3", source: "take-2", target: "takeuntil-1", animated: true, targetHandle: "input-2" },
       { id: "e4-4", source: "takeuntil-1", target: "subscriber-4", animated: true }
     ],
   },
@@ -433,8 +433,8 @@ export const defaultSamples: Sample[] = [
       }
     ],
     edges: [
-      { id: "e5-1", source: "array-1", target: "zip-1", animated: true, targetHandle: "primary" },
-      { id: "e5-2", source: "array-2", target: "zip-1", animated: true, targetHandle: "secondary" },
+      { id: "e5-1", source: "array-1", target: "zip-1", animated: true, targetHandle: "input-1" },
+      { id: "e5-2", source: "array-2", target: "zip-1", animated: true, targetHandle: "input-2" },
       { id: "e5-3", source: "zip-1", target: "map-3", animated: true },
       { id: "e5-4", source: "map-3", target: "subscriber-5", animated: true }
     ],
@@ -497,8 +497,8 @@ export const defaultSamples: Sample[] = [
       }
     ],
     edges: [
-      { id: "e6-1", source: "interval-7", target: "buffer-1", animated: true, targetHandle: "primary" },
-      { id: "e6-2", source: "interval-8", target: "buffer-1", animated: true, targetHandle: "secondary" },
+      { id: "e6-1", source: "interval-7", target: "buffer-1", animated: true, targetHandle: "input-1" },
+      { id: "e6-2", source: "interval-8", target: "buffer-1", animated: true, targetHandle: "input-2" },
       { id: "e6-3", source: "buffer-1", target: "subscriber-6", animated: true }
     ],
   },
@@ -748,10 +748,97 @@ export const defaultSamples: Sample[] = [
       }
     ],
     edges: [
-      { id: "e9-1", source: "interval-10", target: "race-1", animated: true, targetHandle: "primary" },
-      { id: "e9-2", source: "interval-11", target: "race-1", animated: true, targetHandle: "secondary" },
+      { id: "e9-1", source: "interval-10", target: "race-1", animated: true, targetHandle: "input-1" },
+      { id: "e9-2", source: "interval-11", target: "race-1", animated: true, targetHandle: "input-2" },
       { id: "e9-3", source: "race-1", target: "map-6", animated: true },
       { id: "e9-4", source: "map-6", target: "subscriber-9", animated: true }
+    ],
+  },
+  {
+    id: "hot-cold-observable-demo",
+    name: "冷热 Observable 演示",
+    description: "演示冷热 Observable 的区别：热 Observable（如 interval）不依赖订阅者，冷 Observable（如 array）依赖订阅者。",
+    nodes: [
+      {
+        id: "interval-hot",
+        type: "custom",
+        position: { x: 100, y: 100 },
+        data: {
+          id: "interval",
+          name: "热 Observable (Interval)",
+          type: "observable",
+          description: "定期发出递增数字",
+          color: "bg-blue-500",
+          config: { period: 1000 }
+        },
+      },
+      {
+        id: "array-cold",
+        type: "custom",
+        position: { x: 100, y: 300 },
+        data: {
+          id: "array",
+          name: "冷 Observable (Array)",
+          type: "observable",
+          description: "发出数组中的每个值",
+          color: "bg-blue-500",
+          config: { values: '["A", "B", "C", "D", "E"]' }
+        },
+      },
+      {
+        id: "subscriber-hot-1",
+        type: "subscriber",
+        position: { x: 400, y: 50 },
+        data: {
+          id: "subscriber",
+          name: "订阅者1 (热)",
+          type: "observer",
+          description: "第一个订阅者",
+          color: "bg-teal-500"
+        },
+      },
+      {
+        id: "subscriber-hot-2",
+        type: "subscriber",
+        position: { x: 400, y: 150 },
+        data: {
+          id: "subscriber",
+          name: "订阅者2 (热)",
+          type: "observer",
+          description: "第二个订阅者",
+          color: "bg-teal-500"
+        },
+      },
+      {
+        id: "subscriber-cold-1",
+        type: "subscriber",
+        position: { x: 400, y: 250 },
+        data: {
+          id: "subscriber",
+          name: "订阅者1 (冷)",
+          type: "observer",
+          description: "第一个订阅者",
+          color: "bg-teal-500"
+        },
+      },
+      {
+        id: "subscriber-cold-2",
+        type: "subscriber",
+        position: { x: 400, y: 350 },
+        data: {
+          id: "subscriber",
+          name: "订阅者2 (冷)",
+          type: "observer",
+          description: "第二个订阅者",
+          color: "bg-teal-500"
+        },
+      }
+    ],
+    edges: [
+      { id: "e-hot-1", source: "interval-hot", target: "subscriber-hot-1", animated: true },
+      { id: "e-hot-2", source: "interval-hot", target: "subscriber-hot-2", animated: true },
+      { id: "e-cold-1", source: "array-cold", target: "subscriber-cold-1", animated: true },
+      { id: "e-cold-2", source: "array-cold", target: "subscriber-cold-2", animated: true }
     ],
   }
 ];

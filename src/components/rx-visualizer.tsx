@@ -21,6 +21,7 @@ import { Subject } from "rxjs";
 
 const RxVisualizer = () => {
   const [isPlaying, setIsPlaying] = useState(false);
+  const isPlayingRef = useRef(isPlaying);
   const [isNodePanelOpen, setIsNodePanelOpen] = useState(false);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -34,6 +35,11 @@ const RxVisualizer = () => {
     new Map()
   );
   const [dataFlow, setDataFlow] = useState<any[]>([]);
+
+  // 保持 ref 与 state 同步
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
 
   useEffect(() => {
     if (!isPlaying) {
@@ -191,20 +197,23 @@ const RxVisualizer = () => {
       );
 
       // 如果正在播放状态，重新启动以应用新配置
-      if (isPlaying) {
+      if (isPlayingRef.current) {
         setIsPlaying(false);
         setTimeout(() => setIsPlaying(true), 50);
       }
     },
-    [setNodes, isPlaying]
+    [setNodes] // 使用 ref 来避免依赖 isPlaying
   );
 
   const handlePlay = useCallback(() => {
-    setIsPlaying(!isPlaying);
+    const newPlayingState = !isPlaying;
+    setIsPlaying(newPlayingState);
+    isPlayingRef.current = newPlayingState;
   }, [isPlaying]);
 
   const handleReset = useCallback(() => {
     setIsPlaying(false);
+    isPlayingRef.current = false;
     setNodes([]);
     setEdges([]);
     setSubscriberLogs(new Map());
@@ -213,6 +222,15 @@ const RxVisualizer = () => {
   }, [setNodes, setEdges]);
 
   const handleSampleSelect = (sample: Sample) => {
+    // 停止当前播放状态
+    setIsPlaying(false);
+    isPlayingRef.current = false;
+    // 重置所有状态
+    setNodeSubscriptions(new Map());
+    setActiveFlashes(new Set());
+    setSubscriberLogs(new Map());
+    setDataFlow([]);
+    // 加载新的示例
     setNodes(sample.nodes);
     setEdges(sample.edges);
   };
