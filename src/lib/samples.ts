@@ -279,8 +279,8 @@ export const defaultSamples: Sample[] = [
       }
     ],
     edges: [
-      { id: "e3-1", source: "interval-3", target: "merge-1", animated: true, targetHandle: "input-1" },
-      { id: "e3-2", source: "interval-4", target: "merge-1", animated: true, targetHandle: "input-2" },
+      { id: "e3-1", source: "interval-3", target: "merge-1", animated: true, targetHandle: "primary" },
+      { id: "e3-2", source: "interval-4", target: "merge-1", animated: true, targetHandle: "secondary" },
       { id: "e3-3", source: "merge-1", target: "map-2", animated: true },
       { id: "e3-4", source: "map-2", target: "subscriber-3", animated: true }
     ],
@@ -356,9 +356,9 @@ export const defaultSamples: Sample[] = [
       }
     ],
     edges: [
-      { id: "e4-1", source: "interval-5", target: "takeuntil-1", animated: true, targetHandle: "input-1" },
+      { id: "e4-1", source: "interval-5", target: "takeuntil-1", animated: true, targetHandle: "primary" },
       { id: "e4-2", source: "interval-6", target: "take-2", animated: true },
-      { id: "e4-3", source: "take-2", target: "takeuntil-1", animated: true, targetHandle: "input-2" },
+      { id: "e4-3", source: "take-2", target: "takeuntil-1", animated: true, targetHandle: "secondary" },
       { id: "e4-4", source: "takeuntil-1", target: "subscriber-4", animated: true }
     ],
   },
@@ -433,8 +433,8 @@ export const defaultSamples: Sample[] = [
       }
     ],
     edges: [
-      { id: "e5-1", source: "array-1", target: "zip-1", animated: true, targetHandle: "input-1" },
-      { id: "e5-2", source: "array-2", target: "zip-1", animated: true, targetHandle: "input-2" },
+      { id: "e5-1", source: "array-1", target: "zip-1", animated: true, targetHandle: "primary" },
+      { id: "e5-2", source: "array-2", target: "zip-1", animated: true, targetHandle: "secondary" },
       { id: "e5-3", source: "zip-1", target: "map-3", animated: true },
       { id: "e5-4", source: "map-3", target: "subscriber-5", animated: true }
     ],
@@ -497,8 +497,8 @@ export const defaultSamples: Sample[] = [
       }
     ],
     edges: [
-      { id: "e6-1", source: "interval-7", target: "buffer-1", animated: true, targetHandle: "input-1" },
-      { id: "e6-2", source: "interval-8", target: "buffer-1", animated: true, targetHandle: "input-2" },
+      { id: "e6-1", source: "interval-7", target: "buffer-1", animated: true, targetHandle: "primary" },
+      { id: "e6-2", source: "interval-8", target: "buffer-1", animated: true, targetHandle: "secondary" },
       { id: "e6-3", source: "buffer-1", target: "subscriber-6", animated: true }
     ],
   },
@@ -748,8 +748,8 @@ export const defaultSamples: Sample[] = [
       }
     ],
     edges: [
-      { id: "e9-1", source: "interval-10", target: "race-1", animated: true, targetHandle: "input-1" },
-      { id: "e9-2", source: "interval-11", target: "race-1", animated: true, targetHandle: "input-2" },
+      { id: "e9-1", source: "interval-10", target: "race-1", animated: true, targetHandle: "primary" },
+      { id: "e9-2", source: "interval-11", target: "race-1", animated: true, targetHandle: "secondary" },
       { id: "e9-3", source: "race-1", target: "map-6", animated: true },
       { id: "e9-4", source: "map-6", target: "subscriber-9", animated: true }
     ],
