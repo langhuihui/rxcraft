@@ -28,6 +28,8 @@ import {
   share,
   finalize,
   tap,
+  delay,
+  concatMap,
 } from "rxjs/operators";
 import { Node, Edge } from "reactflow";
 
@@ -159,9 +161,21 @@ export const buildRxStream = (
         case "array":
           try {
             const values = JSON.parse(node.data.config?.values || '["A", "B", "C"]');
-            source$ = from(values);
+            // 为数组Observable添加延迟，确保订阅能够接收到数据
+            source$ = from(values).pipe(
+              // 添加延迟，让每个值之间有间隔，便于观察
+              map((value, index) => ({ value, index })),
+              // 使用concatMap来模拟异步发出，每个值间隔100ms
+              concatMap((item, index) =>
+                of(item.value).pipe(
+                  delay(index * 100) // 每个值延迟100ms
+                )
+              )
+            );
           } catch (e) {
-            source$ = from(["解析错误", "请检查JSON格式"]);
+            source$ = from(["解析错误", "请检查JSON格式"]).pipe(
+              delay(100)
+            );
           }
           break;
         case "fetch":
@@ -180,7 +194,7 @@ export const buildRxStream = (
           break;
         case "probabilistic":
           // 自定义概率失败的Observable
-          const delay = node.data.config?.delay || 1000;
+          const delayTime = node.data.config?.delay || 1000;
           const successRate = node.data.config?.successRate || 0.5;
 
           source$ = new Observable(observer => {
@@ -189,14 +203,14 @@ export const buildRxStream = (
               if (random <= successRate) {
                 observer.next({
                   success: true,
-                  value: `成功! (概率: ${(successRate * 100).toFixed(1)}%, 延迟: ${delay}ms)`,
+                  value: `成功! (概率: ${(successRate * 100).toFixed(1)}%, 延迟: ${delayTime}ms)`,
                   timestamp: new Date().toISOString()
                 });
                 observer.complete();
               } else {
-                observer.error(new Error(`模拟失败! (概率: ${((1 - successRate) * 100).toFixed(1)}%, 延迟: ${delay}ms)`));
+                observer.error(new Error(`模拟失败! (概率: ${((1 - successRate) * 100).toFixed(1)}%, 延迟: ${delayTime}ms)`));
               }
-            }, delay);
+            }, delayTime);
 
             return () => {
               clearTimeout(timeoutId);

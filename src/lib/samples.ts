@@ -30,7 +30,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "map-1",
         type: "custom",
-        position: { x: 400, y: 100 },
+        position: { x: 500, y: 100 },
         data: {
           id: "map",
           name: "Map",
@@ -43,7 +43,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "subscriber-1",
         type: "subscriber",
-        position: { x: 700, y: 50 },
+        position: { x: 800, y: 50 },
         data: {
           id: "subscriber",
           name: "订阅者1",
@@ -55,7 +55,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "subscriber-2",
         type: "subscriber",
-        position: { x: 700, y: 150 },
+        position: { x: 800, y: 250 },
         data: {
           id: "subscriber",
           name: "订阅者2",
@@ -107,7 +107,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "map-1",
         type: "custom",
-        position: { x: 400, y: 100 },
+        position: { x: 500, y: 100 },
         data: {
           id: "map",
           name: "Map",
@@ -120,7 +120,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "subscriber-1",
         type: "subscriber",
-        position: { x: 700, y: 100 },
+        position: { x: 800, y: 100 },
         data: {
           id: "subscriber",
           name: "订阅者",
@@ -153,7 +153,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "interval-2",
         type: "custom",
-        position: { x: 50, y: 150 },
+        position: { x: 50, y: 200 },
         data: {
           id: "interval",
           name: "间隔",
@@ -166,7 +166,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "filter-1",
         type: "custom",
-        position: { x: 300, y: 100 },
+        position: { x: 400, y: 100 },
         data: {
           id: "filter",
           name: "Filter",
@@ -179,7 +179,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "take-1",
         type: "custom",
-        position: { x: 550, y: 150 },
+        position: { x: 650, y: 200 },
         data: {
           id: "take",
           name: "Take",
@@ -192,7 +192,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "subscriber-2",
         type: "subscriber",
-        position: { x: 800, y: 150 },
+        position: { x: 900, y: 200 },
         data: {
           id: "subscriber",
           name: "订阅者",
@@ -216,7 +216,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "interval-3",
         type: "custom",
-        position: { x: 100, y: 100 },
+        position: { x: 100, y: 250 },
         data: {
           id: "interval",
           name: "间隔 (1s)",
@@ -229,7 +229,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "interval-4",
         type: "custom",
-        position: { x: 100, y: 250 },
+        position: { x: 100, y: 100 },
         data: {
           id: "interval",
           name: "间隔 (2s)",
@@ -242,20 +242,20 @@ export const defaultSamples: Sample[] = [
       {
         id: "merge-1",
         type: "custom",
-        position: { x: 400, y: 175 },
+        position: { x: 500, y: 175 },
         data: {
           id: "merge",
           name: "Merge",
-          type: "observable",
+          type: "operator",
           description: "合并多个Observable",
-          color: "bg-blue-500",
+          color: "bg-purple-500",
           multipleInputs: true
         },
       },
       {
         id: "map-2",
         type: "custom",
-        position: { x: 650, y: 175 },
+        position: { x: 800, y: 175 },
         data: {
           id: "map",
           name: "Map",
@@ -268,7 +268,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "subscriber-3",
         type: "subscriber",
-        position: { x: 900, y: 175 },
+        position: { x: 1100, y: 175 },
         data: {
           id: "subscriber",
           name: "订阅者",
@@ -293,7 +293,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "interval-5",
         type: "custom",
-        position: { x: 100, y: 100 },
+        position: { x: 100, y: 250 },
         data: {
           id: "interval",
           name: "主数据流",
@@ -306,7 +306,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "interval-6",
         type: "custom",
-        position: { x: 100, y: 250 },
+        position: { x: 100, y: 100 },
         data: {
           id: "interval",
           name: "定时器 (5s)",
@@ -319,7 +319,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "take-2",
         type: "custom",
-        position: { x: 350, y: 250 },
+        position: { x: 300, y: 100 },
         data: {
           id: "take",
           name: "Take(1)",
@@ -332,7 +332,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "takeuntil-1",
         type: "custom",
-        position: { x: 400, y: 100 },
+        position: { x: 600, y: 175 },
         data: {
           id: "takeUntil",
           name: "TakeUntil",
@@ -345,7 +345,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "subscriber-4",
         type: "subscriber",
-        position: { x: 700, y: 100 },
+        position: { x: 900, y: 175 },
         data: {
           id: "subscriber",
           name: "订阅者",
@@ -370,7 +370,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "array-1",
         type: "custom",
-        position: { x: 100, y: 100 },
+        position: { x: 100, y: 250 },
         data: {
           id: "array",
           name: "字母数组",
@@ -383,7 +383,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "array-2",
         type: "custom",
-        position: { x: 100, y: 250 },
+        position: { x: 100, y: 100 },
         data: {
           id: "array",
           name: "数字数组",
@@ -396,7 +396,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "zip-1",
         type: "custom",
-        position: { x: 400, y: 175 },
+        position: { x: 500, y: 175 },
         data: {
           id: "zip",
           name: "Zip",
@@ -409,7 +409,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "map-3",
         type: "custom",
-        position: { x: 650, y: 175 },
+        position: { x: 800, y: 175 },
         data: {
           id: "map",
           name: "Map",
@@ -422,7 +422,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "subscriber-5",
         type: "subscriber",
-        position: { x: 900, y: 175 },
+        position: { x: 1100, y: 175 },
         data: {
           id: "subscriber",
           name: "订阅者",
@@ -447,7 +447,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "interval-7",
         type: "custom",
-        position: { x: 100, y: 100 },
+        position: { x: 100, y: 250 },
         data: {
           id: "interval",
           name: "快速间隔 (200ms)",
@@ -460,7 +460,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "interval-8",
         type: "custom",
-        position: { x: 100, y: 250 },
+        position: { x: 100, y: 100 },
         data: {
           id: "interval",
           name: "缓慢间隔 (2s)",
@@ -473,7 +473,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "buffer-1",
         type: "custom",
-        position: { x: 400, y: 100 },
+        position: { x: 500, y: 175 },
         data: {
           id: "buffer",
           name: "Buffer",
@@ -486,7 +486,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "subscriber-6",
         type: "subscriber",
-        position: { x: 700, y: 100 },
+        position: { x: 900, y: 175 },
         data: {
           id: "subscriber",
           name: "订阅者",
@@ -510,7 +510,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "array-3",
         type: "custom",
-        position: { x: 100, y: 150 },
+        position: { x: 100, y: 200 },
         data: {
           id: "array",
           name: "数组",
@@ -523,7 +523,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "map-4",
         type: "custom",
-        position: { x: 350, y: 150 },
+        position: { x: 450, y: 200 },
         data: {
           id: "map",
           name: "Map (可能出错)",
@@ -536,7 +536,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "retry-1",
         type: "custom",
-        position: { x: 600, y: 150 },
+        position: { x: 700, y: 200 },
         data: {
           id: "retry",
           name: "Retry(2)",
@@ -549,7 +549,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "subscriber-7",
         type: "subscriber",
-        position: { x: 850, y: 150 },
+        position: { x: 950, y: 200 },
         data: {
           id: "subscriber",
           name: "订阅者",
@@ -573,7 +573,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "interval-9",
         type: "custom",
-        position: { x: 100, y: 150 },
+        position: { x: 100, y: 200 },
         data: {
           id: "interval",
           name: "变速间隔",
@@ -586,7 +586,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "map-5",
         type: "custom",
-        position: { x: 350, y: 150 },
+        position: { x: 450, y: 200 },
         data: {
           id: "map",
           name: "Map (延迟)",
@@ -599,7 +599,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "timeout-1",
         type: "custom",
-        position: { x: 600, y: 150 },
+        position: { x: 700, y: 200 },
         data: {
           id: "timeout",
           name: "Timeout(2000)",
@@ -612,7 +612,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "subscriber-8",
         type: "subscriber",
-        position: { x: 850, y: 150 },
+        position: { x: 950, y: 200 },
         data: {
           id: "subscriber",
           name: "订阅者",
@@ -636,7 +636,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "probabilistic-1",
         type: "custom",
-        position: { x: 100, y: 150 },
+        position: { x: 100, y: 200 },
         data: {
           id: "probabilistic",
           name: "概率失败",
@@ -649,7 +649,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "retry-2",
         type: "custom",
-        position: { x: 400, y: 150 },
+        position: { x: 500, y: 200 },
         data: {
           id: "retry",
           name: "Retry(3)",
@@ -662,7 +662,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "subscriber-10",
         type: "subscriber",
-        position: { x: 700, y: 150 },
+        position: { x: 800, y: 200 },
         data: {
           id: "subscriber",
           name: "订阅者",
@@ -685,7 +685,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "interval-10",
         type: "custom",
-        position: { x: 100, y: 100 },
+        position: { x: 100, y: 250 },
         data: {
           id: "interval",
           name: "间隔 (1s)",
@@ -698,7 +698,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "interval-11",
         type: "custom",
-        position: { x: 100, y: 250 },
+        position: { x: 100, y: 100 },
         data: {
           id: "interval",
           name: "间隔 (1.5s)",
@@ -711,20 +711,20 @@ export const defaultSamples: Sample[] = [
       {
         id: "race-1",
         type: "custom",
-        position: { x: 400, y: 175 },
+        position: { x: 500, y: 175 },
         data: {
           id: "race",
           name: "Race",
-          type: "observable",
+          type: "operator",
           description: "只发出最先发出值的Observable的所有值",
-          color: "bg-blue-500",
+          color: "bg-purple-500",
           multipleInputs: true
         },
       },
       {
         id: "map-6",
         type: "custom",
-        position: { x: 650, y: 175 },
+        position: { x: 800, y: 175 },
         data: {
           id: "map",
           name: "Map",
@@ -737,7 +737,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "subscriber-9",
         type: "subscriber",
-        position: { x: 900, y: 175 },
+        position: { x: 1100, y: 175 },
         data: {
           id: "subscriber",
           name: "订阅者",
@@ -775,7 +775,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "array-cold",
         type: "custom",
-        position: { x: 100, y: 300 },
+        position: { x: 100, y: 350 },
         data: {
           id: "array",
           name: "冷 Observable (Array)",
@@ -812,7 +812,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "subscriber-cold-1",
         type: "subscriber",
-        position: { x: 400, y: 250 },
+        position: { x: 400, y: 300 },
         data: {
           id: "subscriber",
           name: "订阅者1 (冷)",
@@ -824,7 +824,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "subscriber-cold-2",
         type: "subscriber",
-        position: { x: 400, y: 350 },
+        position: { x: 400, y: 400 },
         data: {
           id: "subscriber",
           name: "订阅者2 (冷)",
@@ -862,7 +862,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "mouse-move",
         type: "custom",
-        position: { x: 100, y: 250 },
+        position: { x: 100, y: 300 },
         data: {
           id: "mouse",
           name: "鼠标移动",
@@ -875,7 +875,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "mouse-down",
         type: "custom",
-        position: { x: 100, y: 400 },
+        position: { x: 100, y: 500 },
         data: {
           id: "mouse",
           name: "鼠标按下",
@@ -901,7 +901,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "map-move",
         type: "custom",
-        position: { x: 400, y: 250 },
+        position: { x: 400, y: 300 },
         data: {
           id: "map",
           name: "Map",
@@ -914,7 +914,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "map-down",
         type: "custom",
-        position: { x: 400, y: 400 },
+        position: { x: 400, y: 500 },
         data: {
           id: "map",
           name: "Map",
@@ -939,7 +939,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "subscriber-move",
         type: "subscriber",
-        position: { x: 700, y: 250 },
+        position: { x: 700, y: 300 },
         data: {
           id: "subscriber",
           name: "移动订阅者",
@@ -951,7 +951,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "subscriber-down",
         type: "subscriber",
-        position: { x: 700, y: 400 },
+        position: { x: 700, y: 500 },
         data: {
           id: "subscriber",
           name: "按下订阅者",
@@ -978,7 +978,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "interval-primary",
         type: "custom",
-        position: { x: 100, y: 100 },
+        position: { x: 100, y: 250 },
         data: {
           id: "interval",
           name: "主数据流 (1s)",
@@ -991,7 +991,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "interval-secondary",
         type: "custom",
-        position: { x: 100, y: 250 },
+        position: { x: 100, y: 100 },
         data: {
           id: "interval",
           name: "次要数据流 (500ms)",
@@ -1004,7 +1004,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "switchmapto-1",
         type: "custom",
-        position: { x: 400, y: 175 },
+        position: { x: 500, y: 175 },
         data: {
           id: "switchMapTo",
           name: "SwitchMapTo",
@@ -1017,7 +1017,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "map-switch",
         type: "custom",
-        position: { x: 650, y: 175 },
+        position: { x: 800, y: 175 },
         data: {
           id: "map",
           name: "Map",
@@ -1030,7 +1030,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "subscriber-switch",
         type: "subscriber",
-        position: { x: 900, y: 175 },
+        position: { x: 1100, y: 175 },
         data: {
           id: "subscriber",
           name: "订阅者",
@@ -1055,7 +1055,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "interval-primary",
         type: "custom",
-        position: { x: 100, y: 100 },
+        position: { x: 100, y: 250 },
         data: {
           id: "interval",
           name: "主数据流 (2s)",
@@ -1068,7 +1068,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "interval-secondary",
         type: "custom",
-        position: { x: 100, y: 250 },
+        position: { x: 100, y: 100 },
         data: {
           id: "interval",
           name: "次要数据流 (500ms)",
@@ -1081,7 +1081,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "take-until",
         type: "custom",
-        position: { x: 350, y: 250 },
+        position: { x: 300, y: 100 },
         data: {
           id: "take",
           name: "Take(3)",
@@ -1094,7 +1094,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "switchmapto-1",
         type: "custom",
-        position: { x: 600, y: 175 },
+        position: { x: 700, y: 175 },
         data: {
           id: "switchMapTo",
           name: "SwitchMapTo",
@@ -1107,7 +1107,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "map-switch",
         type: "custom",
-        position: { x: 850, y: 175 },
+        position: { x: 1000, y: 175 },
         data: {
           id: "map",
           name: "Map",
@@ -1120,7 +1120,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "subscriber-switch",
         type: "subscriber",
-        position: { x: 1100, y: 175 },
+        position: { x: 1300, y: 175 },
         data: {
           id: "subscriber",
           name: "订阅者",
@@ -1146,7 +1146,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "mouse-down",
         type: "custom",
-        position: { x: -30, y: -90 },
+        position: { x: 100, y: 250 },
         data: {
           id: "mouse",
           name: "鼠标按下",
@@ -1159,7 +1159,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "mouse-move",
         type: "custom",
-        position: { x: -201, y: -249 },
+        position: { x: 100, y: 100 },
         data: {
           id: "mouse",
           name: "鼠标移动",
@@ -1172,7 +1172,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "mouse-up",
         type: "custom",
-        position: { x: -69, y: -432 },
+        position: { x: 300, y: 100 },
         data: {
           id: "mouse",
           name: "鼠标抬起",
@@ -1185,7 +1185,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "takeuntil-1",
         type: "custom",
-        position: { x: 123, y: -204 },
+        position: { x: 600, y: 175 },
         data: {
           id: "takeUntil",
           name: "TakeUntil",
@@ -1198,7 +1198,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "switchmapto-1",
         type: "custom",
-        position: { x: 347, y: -45 },
+        position: { x: 900, y: 175 },
         data: {
           id: "switchMapTo",
           name: "SwitchMapTo",
@@ -1211,7 +1211,7 @@ export const defaultSamples: Sample[] = [
       {
         id: "subscriber-1",
         type: "subscriber",
-        position: { x: 723, y: -124 },
+        position: { x: 1200, y: 175 },
         data: {
           id: "subscriber",
           name: "订阅者",

@@ -695,6 +695,34 @@ const WorkArea = ({
     [isPlaying]
   );
 
+  // 计算节点高度的辅助函数
+  const getNodeHeight = (nodeId: string, nodeType: string) => {
+    // 基础高度
+    let baseHeight = 60; // 基础节点高度
+
+    // 根据节点类型调整高度
+    if (nodeType === "observer") {
+      return 200; // 订阅者节点有日志区域，高度较大
+    }
+
+    // 检查是否有配置组件
+    const hasConfig = CONFIG_MAP[nodeId] !== undefined;
+    if (hasConfig) {
+      baseHeight += 120; // 大幅增加配置组件的高度
+    }
+
+    // 检查是否是多输入节点
+    const isMultiInput =
+      nodeId.includes("combine") ||
+      nodeId.includes("merge") ||
+      nodeId.includes("zip");
+    if (isMultiInput) {
+      baseHeight += 20; // 多输入节点稍微高一些
+    }
+
+    return baseHeight;
+  };
+
   const onDrop = useCallback(
     (event: React.DragEvent) => {
       event.preventDefault();
@@ -771,8 +799,188 @@ const WorkArea = ({
         data: { ...data, config: defaultConfig },
       };
 
+      // 计算新节点的高度
+      const newNodeHeight = getNodeHeight(data.id, data.type);
+
+      // 检查附近是否有其他节点，避免重叠
+      const nearbyNodes = nodes.filter((node) => {
+        const distance = Math.sqrt(
+          Math.pow(node.position.x - position.x, 2) +
+            Math.pow(node.position.y - position.y, 2)
+        );
+        return distance < 400; // 增加检测范围到400px
+      });
+
+      // 如果没有附近节点，给新节点一个默认的垂直偏移
+      if (nearbyNodes.length === 0) {
+        position.y += 100; // 默认向下偏移100px
+      } else {
+        // 智能位置分配：找到最佳位置
+        const gridSize = 200; // 网格大小
+        const positions = nearbyNodes.map((node) => ({
+          x: Math.round(node.position.x / gridSize) * gridSize,
+          y: Math.round(node.position.y / gridSize) * gridSize,
+        }));
+
+        // 找到最近的可用网格位置
+        let bestPosition = { x: position.x, y: position.y };
+        let minDistance = Infinity;
+
+        // 在周围网格中寻找最佳位置
+        for (let dx = -2; dx <= 2; dx++) {
+          for (let dy = -2; dy <= 2; dy++) {
+            const candidateX =
+              Math.round(position.x / gridSize) * gridSize + dx * gridSize;
+            const candidateY =
+              Math.round(position.y / gridSize) * gridSize + dy * gridSize;
+
+            // 检查这个位置是否被占用
+            const isOccupied = positions.some(
+              (pos) =>
+                Math.abs(pos.x - candidateX) < gridSize &&
+                Math.abs(pos.y - candidateY) < gridSize
+            );
+
+            if (!isOccupied) {
+              const distance = Math.sqrt(
+                Math.pow(candidateX - position.x, 2) +
+                  Math.pow(candidateY - position.y, 2)
+              );
+              if (distance < minDistance) {
+                minDistance = distance;
+                bestPosition = { x: candidateX, y: candidateY };
+              }
+            }
+          }
+        }
+
+        // 如果找到了更好的位置，使用它
+        if (minDistance < Infinity) {
+          position.x = bestPosition.x;
+          position.y = bestPosition.y;
+        }
+      }
+
+      // 计算需要的最小垂直间距
+      let minVerticalSpacing = 80; // 大幅增加基础间距
+      let maxAdjustment = 0;
+
+      nearbyNodes.forEach((node) => {
+        const nodeHeight = getNodeHeight(node.data.id, node.data.type);
+
+        // 动态计算所需间距，根据节点类型和内容调整
+        let requiredSpacing = minVerticalSpacing;
+
+        // 如果任一节点有配置组件，增加间距
+        const hasConfig1 = CONFIG_MAP[data.id] !== undefined;
+        const hasConfig2 = CONFIG_MAP[node.data.id] !== undefined;
+        if (hasConfig1 || hasConfig2) {
+          requiredSpacing += 60; // 有配置组件的节点需要更多空间
+        }
+
+        // 如果两个节点类型相同，进一步增加间距
+        if (data.id === node.data.id) {
+          requiredSpacing += 80; // 相同类型节点需要更多间距
+        }
+
+        const totalHeight =
+          Math.max(newNodeHeight, nodeHeight) + requiredSpacing;
+        const verticalDistance = Math.abs(node.position.y - position.y);
+
+        if (verticalDistance < totalHeight) {
+          // 如果垂直距离小于所需间距，计算需要的调整量
+          const adjustment = totalHeight - verticalDistance;
+          maxAdjustment = Math.max(maxAdjustment, adjustment);
+
+          // 根据节点位置关系决定调整方向
+          if (node.position.y < position.y) {
+            // 如果现有节点在上方，新节点向下移动
+            position.y += adjustment;
+          } else {
+            // 如果现有节点在下方，新节点向上移动
+            position.y -= adjustment;
+          }
+        }
+      });
+
+      // 如果进行了调整，确保调整后的位置不会与其他节点重叠
+      if (maxAdjustment > 0) {
+        // 再次检查调整后的位置
+        nearbyNodes.forEach((node) => {
+          const nodeHeight = getNodeHeight(node.data.id, node.data.type);
+
+          // 使用相同的动态间距计算
+          let requiredSpacing = minVerticalSpacing;
+          const hasConfig1 = CONFIG_MAP[data.id] !== undefined;
+          const hasConfig2 = CONFIG_MAP[node.data.id] !== undefined;
+          if (hasConfig1 || hasConfig2) {
+            requiredSpacing += 60;
+          }
+          if (data.id === node.data.id) {
+            requiredSpacing += 80;
+          }
+
+          const totalHeight =
+            Math.max(newNodeHeight, nodeHeight) + requiredSpacing;
+          const verticalDistance = Math.abs(node.position.y - position.y);
+
+          if (verticalDistance < totalHeight) {
+            // 如果仍然重叠，进一步调整
+            const additionalAdjustment = totalHeight - verticalDistance;
+            if (node.position.y < position.y) {
+              position.y += additionalAdjustment;
+            } else {
+              position.y -= additionalAdjustment;
+            }
+          }
+        });
+      }
+
+      // 特殊处理：如果新节点与现有节点类型相同，增加额外间距
+      const sameTypeNodes = nearbyNodes.filter(
+        (node) => node.data.id === data.id
+      );
+      if (sameTypeNodes.length > 0) {
+        // 对于相同类型的节点，增加更大的间距
+        const extraSpacing = 120; // 大幅增加间距
+        sameTypeNodes.forEach((node) => {
+          const nodeHeight = getNodeHeight(node.data.id, node.data.type);
+          const totalHeight =
+            Math.max(newNodeHeight, nodeHeight) + extraSpacing;
+          const verticalDistance = Math.abs(node.position.y - position.y);
+
+          if (verticalDistance < totalHeight) {
+            const adjustment = totalHeight - verticalDistance;
+            if (node.position.y < position.y) {
+              position.y += adjustment;
+            } else {
+              position.y -= adjustment;
+            }
+          }
+        });
+
+        // 额外检查：确保相同类型节点之间有足够的水平间距
+        sameTypeNodes.forEach((node) => {
+          const horizontalDistance = Math.abs(node.position.x - position.x);
+          if (horizontalDistance < 300) {
+            // 如果水平距离太近
+            // 调整水平位置，让相同类型的节点错开
+            if (node.position.x < position.x) {
+              position.x += 150; // 向右移动
+            } else {
+              position.x -= 150; // 向左移动
+            }
+          }
+        });
+      }
+
+      const newNodeWithAdjustedPosition = {
+        ...newNode,
+        position,
+      };
+
       setNodes((nds: Node<NodeData>[]) =>
-        nds.concat(newNode as Node<NodeData>)
+        nds.concat(newNodeWithAdjustedPosition as Node<NodeData>)
       );
 
       // 在下一个 tick 中调整节点位置，确保节点已经渲染
@@ -812,6 +1020,25 @@ const WorkArea = ({
             y: flowOffset.y - originalFlowPosition.y,
           };
 
+          // 使用高度计算函数来调整垂直位置
+          const newNodeHeight = getNodeHeight(data.id, data.type);
+          let adjustedYOffset = finalOffset.y;
+
+          // 根据节点高度调整垂直偏移
+          if (newNodeHeight > 60) {
+            // 如果节点高度大于基础高度
+            adjustedYOffset += (newNodeHeight - 60) / 2; // 适当增加垂直偏移
+          }
+
+          // 检查是否有相同类型的节点，增加额外间距
+          const sameTypeNodes = nodes.filter(
+            (node) => node.data.id === data.id && node.id !== newNode.id
+          );
+          if (sameTypeNodes.length > 0) {
+            // 对于相同类型的节点，增加额外的垂直偏移
+            adjustedYOffset += 40;
+          }
+
           setNodes((nds: Node<NodeData>[]) =>
             nds.map((node) =>
               node.id === newNode.id
@@ -819,7 +1046,7 @@ const WorkArea = ({
                     ...node,
                     position: {
                       x: node.position.x + finalOffset.x,
-                      y: node.position.y + finalOffset.y,
+                      y: node.position.y + adjustedYOffset,
                     },
                   }
                 : node
