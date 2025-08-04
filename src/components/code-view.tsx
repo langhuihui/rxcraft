@@ -8,11 +8,17 @@ interface CodeViewProps {
   edges: Edge[];
 }
 
+interface NodeConnection {
+  nodeId: string;
+  inputs: string[];
+  outputs: string[];
+}
+
 const generateCode = (nodes: Node[], edges: Edge[]) => {
   if (nodes.length === 0) return "// 请添加节点以生成代码...";
 
   let code = `import { fromEvent, of, from, interval, EMPTY, NEVER, merge, race, zip, combineLatest } from 'rxjs';\n`;
-  code += `import { map, filter, take, skip, startWith, takeUntil, skipUntil, buffer, switchMapTo, retry, timeout } from 'rxjs/operators';\n\n`;
+  code += `import { map, filter, take, skip, startWith, takeUntil, skipUntil, buffer, switchMapTo, retry, timeout, tap, catchError, finalize } from 'rxjs/operators';\n\n`;
 
   const observables = nodes.filter((n) => n.data.type === "observable");
   const operators = nodes.filter((n) => n.data.type === "operator");
@@ -22,60 +28,86 @@ const generateCode = (nodes: Node[], edges: Edge[]) => {
     return "// 请至少添加一个 Observable 节点...";
   }
 
-  // 生成所有Observable节点的代码
+  // 构建节点连接关系图
+  const nodeConnections = new Map<string, NodeConnection>();
+
+  // 初始化所有节点的连接信息
+  nodes.forEach((node) => {
+    nodeConnections.set(node.id, {
+      nodeId: node.id,
+      inputs: [],
+      outputs: [],
+    });
+  });
+
+  // 填充连接信息
+  edges.forEach((edge) => {
+    const sourceConn = nodeConnections.get(edge.source);
+    const targetConn = nodeConnections.get(edge.target);
+
+    if (sourceConn) {
+      sourceConn.outputs.push(edge.target);
+    }
+    if (targetConn) {
+      targetConn.inputs.push(edge.source);
+    }
+  });
+
+  // 生成Observable声明
+  code += "// Observable 声明\n";
   observables.forEach((node) => {
     const varName = node.id.split("-")[0];
+    const config = node.data.config || {};
+
     switch (node.data.id) {
       case "click":
-        code += `// 点击事件\nconst ${varName}$ = fromEvent(document, 'click').pipe(map(e => ({ x: e.clientX, y: e.clientY })));\n`;
+        code += `const ${varName}$ = fromEvent(document, 'click').pipe(\n`;
+        code += `  map(e => ({ x: e.clientX, y: e.clientY }))\n`;
+        code += `);\n`;
         break;
       case "mousemove":
-        code += `// 鼠标移动事件\nconst ${varName}$ = fromEvent(document, 'mousemove').pipe(map(e => ({ x: e.clientX, y: e.clientY })));\n`;
+        code += `const ${varName}$ = fromEvent(document, 'mousemove').pipe(\n`;
+        code += `  map(e => ({ x: e.clientX, y: e.clientY }))\n`;
+        code += `);\n`;
         break;
       case "keydown":
-        code += `// 键盘按下事件\nconst ${varName}$ = fromEvent(document, 'keydown').pipe(map(e => e.key));\n`;
+        code += `const ${varName}$ = fromEvent(document, 'keydown').pipe(\n`;
+        code += `  map(e => e.key)\n`;
+        code += `);\n`;
         break;
       case "interval":
-        code += `// 定时器\nconst ${varName}$ = interval(${
-          node.data.config?.period || 1000
-        });\n`;
+        const period = config.period || 1000;
+        code += `const ${varName}$ = interval(${period});\n`;
         break;
       case "array":
-        code += `// 数组\nconst ${varName}$ = from(${
-          node.data.config?.values || '["A", "B", "C"]'
-        });\n`;
+        const values = config.values || '["A", "B", "C"]';
+        code += `const ${varName}$ = from(${values});\n`;
         break;
       case "fetch":
-        code += `// HTTP请求\nconst ${varName}$ = from(fetch('${
-          node.data.config?.url ||
-          "https://jsonplaceholder.typicode.com/todos/1"
-        }').then(res => res.json()));\n`;
+        const url =
+          config.url || "https://jsonplaceholder.typicode.com/todos/1";
+        code += `const ${varName}$ = from(fetch('${url}').then(res => res.json()));\n`;
         break;
       case "empty":
-        code += `// 空Observable\nconst ${varName}$ = EMPTY;\n`;
+        code += `const ${varName}$ = EMPTY;\n`;
         break;
       case "never":
-        code += `// 永不完成的Observable\nconst ${varName}$ = NEVER;\n`;
+        code += `const ${varName}$ = NEVER;\n`;
         break;
       case "merge":
-        code += `// 合并Observable\n// merge的实际输入将在后面定义\nlet ${varName}$;\n`;
+        code += `// merge 将在操作符链中定义\nlet ${varName}$;\n`;
         break;
       case "race":
-        code += `// 竞争Observable\n// race的实际输入将在后面定义\nlet ${varName}$;\n`;
+        code += `// race 将在操作符链中定义\nlet ${varName}$;\n`;
+        break;
+      case "of":
+        const ofValue = config.value || "hello";
+        code += `const ${varName}$ = of(${JSON.stringify(ofValue)});\n`;
         break;
     }
   });
 
   code += "\n// 操作符链和数据流组合\n";
-
-  // 构建节点连接关系图
-  const nodeConnections = new Map<string, string[]>();
-  edges.forEach((edge) => {
-    if (!nodeConnections.has(edge.target)) {
-      nodeConnections.set(edge.target, []);
-    }
-    nodeConnections.get(edge.target)!.push(edge.source);
-  });
 
   // 生成操作符链代码
   const processedNodes = new Set<string>();
@@ -92,6 +124,7 @@ const generateCode = (nodes: Node[], edges: Edge[]) => {
 
     processedNodes.add(nodeId);
     const varName = nodeId.split("-")[0];
+    const config = node.data.config || {};
 
     // 如果是Observable节点，直接返回变量名
     if (
@@ -103,7 +136,9 @@ const generateCode = (nodes: Node[], edges: Edge[]) => {
     }
 
     // 获取输入节点
-    const inputs = nodeConnections.get(nodeId) || [];
+    const connections = nodeConnections.get(nodeId);
+    const inputs = connections?.inputs || [];
+
     if (inputs.length === 0) return "";
 
     // 处理特殊的merge和race Observable节点
@@ -132,19 +167,22 @@ const generateCode = (nodes: Node[], edges: Edge[]) => {
 
         switch (node.data.id) {
           case "takeUntil":
-            operatorCode = `${primaryStream}.pipe(takeUntil(${secondaryStream}))`;
+            operatorCode = `${primaryStream}.pipe(\n  takeUntil(${secondaryStream})\n)`;
             break;
           case "skipUntil":
-            operatorCode = `${primaryStream}.pipe(skipUntil(${secondaryStream}))`;
+            operatorCode = `${primaryStream}.pipe(\n  skipUntil(${secondaryStream})\n)`;
             break;
           case "zip":
             operatorCode = `zip(${primaryStream}, ${secondaryStream})`;
             break;
+          case "combineLatest":
+            operatorCode = `combineLatest([${primaryStream}, ${secondaryStream}])`;
+            break;
           case "buffer":
-            operatorCode = `${primaryStream}.pipe(buffer(${secondaryStream}))`;
+            operatorCode = `${primaryStream}.pipe(\n  buffer(${secondaryStream})\n)`;
             break;
           case "switchMapTo":
-            operatorCode = `${primaryStream}.pipe(switchMapTo(${secondaryStream}))`;
+            operatorCode = `${primaryStream}.pipe(\n  switchMapTo(${secondaryStream})\n)`;
             break;
           default:
             operatorCode = `${primaryStream}`;
@@ -156,39 +194,47 @@ const generateCode = (nodes: Node[], edges: Edge[]) => {
 
         switch (node.data.id) {
           case "map":
-            operatorCode = `${inputStream}.pipe(map(${
-              node.data.config?.func || "x => x"
-            }))`;
+            const mapFunc = config.func || "x => x";
+            operatorCode = `${inputStream}.pipe(\n  map(${mapFunc})\n)`;
             break;
           case "filter":
-            operatorCode = `${inputStream}.pipe(filter(${
-              node.data.config?.func || "x => true"
-            }))`;
+            const filterFunc = config.func || "x => true";
+            operatorCode = `${inputStream}.pipe(\n  filter(${filterFunc})\n)`;
             break;
           case "take":
-            operatorCode = `${inputStream}.pipe(take(${
-              node.data.config?.count || 5
-            }))`;
+            const takeCount = config.count || 5;
+            operatorCode = `${inputStream}.pipe(\n  take(${takeCount})\n)`;
             break;
           case "skip":
-            operatorCode = `${inputStream}.pipe(skip(${
-              node.data.config?.count || 2
-            }))`;
+            const skipCount = config.count || 2;
+            operatorCode = `${inputStream}.pipe(\n  skip(${skipCount})\n)`;
             break;
           case "startWith":
-            operatorCode = `${inputStream}.pipe(startWith("${
-              node.data.config?.value || "初始值"
-            }"))`;
+            const startValue = config.value || "初始值";
+            operatorCode = `${inputStream}.pipe(\n  startWith(${JSON.stringify(
+              startValue
+            )})\n)`;
             break;
           case "retry":
-            operatorCode = `${inputStream}.pipe(retry(${
-              node.data.config?.count || 3
-            }))`;
+            const retryCount = config.count || 3;
+            operatorCode = `${inputStream}.pipe(\n  retry(${retryCount})\n)`;
             break;
           case "timeout":
-            operatorCode = `${inputStream}.pipe(timeout(${
-              node.data.config?.time || 5000
-            }))`;
+            const timeoutMs = config.time || 5000;
+            operatorCode = `${inputStream}.pipe(\n  timeout(${timeoutMs})\n)`;
+            break;
+          case "tap":
+            const tapFunc = config.func || "x => console.log('tap:', x)";
+            operatorCode = `${inputStream}.pipe(\n  tap(${tapFunc})\n)`;
+            break;
+          case "catchError":
+            const errorFunc = config.func || "err => of('error handled')";
+            operatorCode = `${inputStream}.pipe(\n  catchError(${errorFunc})\n)`;
+            break;
+          case "finalize":
+            const finalizeFunc =
+              config.func || "() => console.log('finalized')";
+            operatorCode = `${inputStream}.pipe(\n  finalize(${finalizeFunc})\n)`;
             break;
           default:
             operatorCode = inputStream;
@@ -205,14 +251,16 @@ const generateCode = (nodes: Node[], edges: Edge[]) => {
 
   // 从订阅者节点开始生成操作符链
   observers.forEach((observer) => {
-    const inputs = nodeConnections.get(observer.id) || [];
+    const connections = nodeConnections.get(observer.id);
+    const inputs = connections?.inputs || [];
+
     if (inputs.length > 0) {
       const input = inputs[0];
       const inputStream = generateOperatorChain(input);
       const observerName = observer.id.split("-")[0];
       operatorChains.set(
         observer.id,
-        `// 订阅者\n${observerName}$ = ${inputStream}`
+        `// 订阅者\nconst ${observerName}$ = ${inputStream}`
       );
     }
   });
@@ -248,8 +296,12 @@ const CodeView: React.FC<CodeViewProps> = ({ nodes, edges }) => {
           height: "100%",
           width: "100%",
           backgroundColor: "#1E1E1E",
+          fontSize: "13px",
+          lineHeight: "1.5",
         }}
         showLineNumbers
+        wrapLines
+        wrapLongLines
       >
         {codeString}
       </SyntaxHighlighter>

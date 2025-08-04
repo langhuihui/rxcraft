@@ -102,6 +102,7 @@ interface WorkAreaProps {
   activeFlashes: Set<string>;
   subscriberLogs: Map<string, any[]>;
   onUpdateNodeConfig: (id: string, config: Record<string, any>) => void;
+  isPlaying?: boolean;
 }
 
 // --- 受控输入组件 ---
@@ -299,6 +300,30 @@ const TimeoutConfig = ({ data, onUpdate }: ConfigProps) => (
   </div>
 );
 
+// 新增：鼠标事件配置组件
+const MouseEventConfig = ({ data, onUpdate }: ConfigProps) => (
+  <div className="space-y-2">
+    <Label htmlFor="mouse-event-type">事件类型</Label>
+    <select
+      id="mouse-event-type"
+      value={data.config?.eventType || "click"}
+      onChange={(e) => onUpdate({ eventType: e.target.value })}
+      className="w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-white nodrag"
+      aria-label="选择鼠标事件类型"
+    >
+      <option value="click">点击 (click)</option>
+      <option value="dblclick">双击 (dblclick)</option>
+      <option value="mousedown">按下 (mousedown)</option>
+      <option value="mouseup">抬起 (mouseup)</option>
+      <option value="mousemove">移动 (mousemove)</option>
+      <option value="mouseenter">进入 (mouseenter)</option>
+      <option value="mouseleave">离开 (mouseleave)</option>
+      <option value="mouseover">悬停 (mouseover)</option>
+      <option value="mouseout">移出 (mouseout)</option>
+    </select>
+  </div>
+);
+
 const ProbabilisticConfig = ({ data, onUpdate }: ConfigProps) => (
   <div className="space-y-2">
     <Label htmlFor="probabilistic-delay">延迟时间 (ms)</Label>
@@ -335,6 +360,7 @@ const CONFIG_MAP: Record<string, React.FC<ConfigProps>> = {
   timeout: TimeoutConfig,
   fetch: FetchConfig,
   probabilistic: ProbabilisticConfig,
+  mouse: MouseEventConfig, // 新增鼠标事件配置
 };
 
 // --- 自定义节点组件 ---
@@ -349,10 +375,6 @@ const StatusIndicator = ({
   }
   if (status === "errored") {
     return <XCircle className="w-4 h-4 text-red-500" />;
-  }
-  // 使用类型断言确保类型安全
-  if (status === ("cancelled" as ExtendedNodeStatus)) {
-    return <Slash className="w-4 h-4 text-orange-500" />;
   }
 
   // 根据颜色和状态确定样式
@@ -442,12 +464,6 @@ const SubscriberNode = React.memo(({ data }: SubscriberNodeProps) => {
     Array.from(data.subscriptions.values()).some(
       (status) => status === "errored"
     );
-  const hasCancelledSubscriptions =
-    data.subscriptions &&
-    Array.from(data.subscriptions.values()).some(
-      (status) => status === "cancelled"
-    );
-
   // 订阅者节点：如果有日志数据，说明正在接收数据
   const hasLogs = data.logs && data.logs.length > 0;
 
@@ -455,8 +471,6 @@ const SubscriberNode = React.memo(({ data }: SubscriberNodeProps) => {
     ? "border-red-500"
     : hasCompletedSubscriptions
     ? "border-green-500"
-    : hasCancelledSubscriptions
-    ? "border-orange-500"
     : hasActiveSubscriptions
     ? "border-teal-500"
     : hasLogs
@@ -595,16 +609,18 @@ const CustomNode = React.memo(
             <Handle
               type="target"
               position={Position.Left}
-              id="input-1"
+              id={data.type === "operator" ? "primary" : "input-1"}
               className="w-2 h-2 !bg-slate-400"
-              style={{ top: "30%" }}
+              style={{ top: data.type === "operator" ? "50%" : "30%" }}
             />
             <Handle
               type="target"
-              position={Position.Left}
-              id="input-2"
+              position={data.type === "operator" ? Position.Top : Position.Left}
+              id={data.type === "operator" ? "secondary" : "input-2"}
               className="w-2 h-2 !bg-slate-400"
-              style={{ top: "70%" }}
+              style={
+                data.type === "operator" ? { left: "50%" } : { top: "70%" }
+              }
             />
           </>
         )}
@@ -655,6 +671,7 @@ const WorkArea = ({
   activeFlashes,
   subscriberLogs,
   onUpdateNodeConfig,
+  isPlaying = false,
 }: WorkAreaProps) => {
   const reactFlowInstance = useReactFlow();
 
@@ -663,26 +680,53 @@ const WorkArea = ({
     [setEdges]
   );
 
-  const onDragOver = useCallback((event: React.DragEvent) => {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-  }, []);
+  const onDragOver = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
+
+      // 播放状态下禁用拖拽悬停效果
+      if (isPlaying) {
+        event.dataTransfer.dropEffect = "none";
+        return;
+      }
+
+      event.dataTransfer.dropEffect = "move";
+    },
+    [isPlaying]
+  );
 
   const onDrop = useCallback(
     (event: React.DragEvent) => {
       event.preventDefault();
+
+      // 播放状态下禁用拖放功能
+      if (isPlaying) {
+        return;
+      }
+
       const typeData = event.dataTransfer.getData("application/json");
       if (!typeData) return;
 
       const data = JSON.parse(typeData);
-      const position = reactFlowInstance.screenToFlowPosition({
+      const flowPosition = reactFlowInstance.screenToFlowPosition({
         x: event.clientX,
         y: event.clientY,
       });
 
+      // 初始位置设置为鼠标位置，稍后会精确调整
+      const position = flowPosition;
+
+      // 调试信息
+      console.log("Mouse position:", { x: event.clientX, y: event.clientY });
+      console.log("Flow position:", flowPosition);
+      console.log("Node position:", position);
+
       // 为不同类型的节点设置默认配置
       let defaultConfig: Record<string, any> = {};
       switch (data.id) {
+        case "mouse":
+          defaultConfig = { eventType: "click" };
+          break;
         case "interval":
           defaultConfig = { period: 1000 };
           break;
@@ -730,6 +774,59 @@ const WorkArea = ({
       setNodes((nds: Node<NodeData>[]) =>
         nds.concat(newNode as Node<NodeData>)
       );
+
+      // 在下一个 tick 中调整节点位置，确保节点已经渲染
+      setTimeout(() => {
+        const nodeElement = document.querySelector(
+          `[data-id="${newNode.id}"]`
+        ) as HTMLElement;
+        if (nodeElement) {
+          const rect = nodeElement.getBoundingClientRect();
+          const nodeCenter = {
+            x: rect.left + rect.width / 2,
+            y: rect.top + rect.height / 2,
+          };
+
+          const mousePosition = {
+            x: event.clientX,
+            y: event.clientY,
+          };
+
+          // 计算需要移动的距离（屏幕坐标）
+          const offsetX = mousePosition.x - nodeCenter.x;
+          const offsetY = mousePosition.y - nodeCenter.y;
+
+          // 将屏幕偏移转换为流坐标偏移
+          const flowOffset = reactFlowInstance.screenToFlowPosition({
+            x: mousePosition.x + offsetX,
+            y: mousePosition.y + offsetY,
+          });
+
+          const originalFlowPosition = reactFlowInstance.screenToFlowPosition({
+            x: mousePosition.x,
+            y: mousePosition.y,
+          });
+
+          const finalOffset = {
+            x: flowOffset.x - originalFlowPosition.x,
+            y: flowOffset.y - originalFlowPosition.y,
+          };
+
+          setNodes((nds: Node<NodeData>[]) =>
+            nds.map((node) =>
+              node.id === newNode.id
+                ? {
+                    ...node,
+                    position: {
+                      x: node.position.x + finalOffset.x,
+                      y: node.position.y + finalOffset.y,
+                    },
+                  }
+                : node
+            )
+          );
+        }
+      }, 0);
     },
     [reactFlowInstance, setNodes]
   );
@@ -790,13 +887,27 @@ const WorkArea = ({
   );
 
   return (
-    <div className="h-full w-full" onDrop={onDrop} onDragOver={onDragOver}>
+    <div
+      className="h-full w-full relative"
+      onDrop={onDrop}
+      onDragOver={onDragOver}
+    >
+      {isPlaying && (
+        <>
+          <div className="absolute top-4 right-4 z-10 pointer-events-none">
+            <div className="bg-slate-800/90 border border-slate-600 rounded-lg px-3 py-1.5 text-white text-xs font-medium shadow-lg">
+              🔒 画布已锁定
+            </div>
+          </div>
+          <div className="absolute top-0 left-0 w-1 h-full bg-blue-500/30 z-10 pointer-events-none"></div>
+        </>
+      )}
       <ReactFlow
         nodes={enrichedNodes}
         edges={animatedEdges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
+        onNodesChange={isPlaying ? undefined : onNodesChange}
+        onEdgesChange={isPlaying ? undefined : onEdgesChange}
+        onConnect={isPlaying ? undefined : onConnect}
         nodeTypes={nodeTypes}
         fitView
         defaultViewport={{ x: 0, y: 0, zoom: 0.7 }} // 设置初始缩放比例为0.7
@@ -806,6 +917,12 @@ const WorkArea = ({
           type: "default",
           style: { strokeWidth: 1.5 },
         }}
+        nodesDraggable={!isPlaying}
+        nodesConnectable={!isPlaying}
+        elementsSelectable={!isPlaying}
+        panOnDrag={!isPlaying}
+        zoomOnScroll={!isPlaying}
+        zoomOnPinch={!isPlaying}
       >
         <Background color="#4a5568" gap={16} />
         <MiniMap
@@ -834,6 +951,11 @@ const WorkArea = ({
 
             return colorMap[color] || color;
           }}
+          style={{
+            backgroundColor: "#0f172a", // 深色背景
+            border: "1px solid #334155",
+          }}
+          className="bg-slate-900 border-slate-700"
         />
         <Controls />
       </ReactFlow>

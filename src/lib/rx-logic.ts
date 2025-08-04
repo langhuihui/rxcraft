@@ -54,12 +54,13 @@ const isHotObservable = (observableId: string): boolean => {
   const hotObservables = [
     "click",      // DOM 事件
     "mousemove",  // DOM 事件
+    "mouse",      // 鼠标事件（新增）
     "keydown",    // DOM 事件
     "interval",   // 定时器
     "merge",      // 合并操作
     "race",       // 竞争操作
   ];
-  
+
   return hotObservables.includes(observableId);
 };
 
@@ -74,11 +75,27 @@ export const buildRxStream = (
 
   // 构建节点连接关系图
   const nodeConnections = new Map<string, string[]>();
+  const nodeConnectionDetails = new Map<string, { primary?: string; secondary?: string; others: string[]; }>();
+
   edges.forEach((edge) => {
     if (!nodeConnections.has(edge.target)) {
       nodeConnections.set(edge.target, []);
+      nodeConnectionDetails.set(edge.target, { others: [] });
     }
     nodeConnections.get(edge.target)!.push(edge.source);
+
+    // 对于多输入节点，根据连接点ID区分主要和次要输入
+    const targetNode = nodes.find(n => n.id === edge.target);
+    if (targetNode?.data.multipleInputs && targetNode.data.type === "operator") {
+      const details = nodeConnectionDetails.get(edge.target)!;
+      if (edge.targetHandle === "primary") {
+        details.primary = edge.source;
+      } else if (edge.targetHandle === "secondary") {
+        details.secondary = edge.source;
+      } else {
+        details.others.push(edge.source);
+      }
+    }
   });
 
   // 创建Observable源
@@ -89,13 +106,46 @@ export const buildRxStream = (
 
       switch (node.data.id) {
         case "click":
+          // 保持向后兼容
           source$ = fromEvent<MouseEvent>(document, "click").pipe(
-            map((e) => ({ x: e.clientX, y: e.clientY }))
+            map((e) => ({ x: e.clientX, y: e.clientY, type: "click", button: e.button }))
           );
           break;
         case "mousemove":
+          // 保持向后兼容
           source$ = fromEvent<MouseEvent>(document, "mousemove").pipe(
-            map((e) => ({ x: e.clientX, y: e.clientY }))
+            map((e) => ({ x: e.clientX, y: e.clientY, type: "mousemove" }))
+          );
+          break;
+        case "mouse":
+          // 新增：统一的鼠标事件 Observable
+          const mouseEventType = node.data.config?.eventType || "click";
+          source$ = fromEvent<MouseEvent>(document, mouseEventType).pipe(
+            map((e) => {
+              const baseData = { x: e.clientX, y: e.clientY };
+              switch (mouseEventType) {
+                case "click":
+                  return { ...baseData, type: "click", button: e.button };
+                case "dblclick":
+                  return { ...baseData, type: "dblclick", button: e.button };
+                case "mousedown":
+                  return { ...baseData, type: "mousedown", button: e.button };
+                case "mouseup":
+                  return { ...baseData, type: "mouseup", button: e.button };
+                case "mousemove":
+                  return { ...baseData, type: "mousemove" };
+                case "mouseenter":
+                  return { ...baseData, type: "mouseenter" };
+                case "mouseleave":
+                  return { ...baseData, type: "mouseleave" };
+                case "mouseover":
+                  return { ...baseData, type: "mouseover" };
+                case "mouseout":
+                  return { ...baseData, type: "mouseout" };
+                default:
+                  return { ...baseData, type: mouseEventType };
+              }
+            })
           );
           break;
         case "keydown":
@@ -249,8 +299,25 @@ export const buildRxStream = (
 
     // 处理需要两个输入的操作符
     if (node.data.multipleInputs && inputs.length >= 2) {
-      const primaryInput = inputs[0];
-      const secondaryInput = inputs[1];
+      let primaryInput: string;
+      let secondaryInput: string;
+
+      // 对于operator类型的多输入节点，使用连接详情
+      if (node.data.type === "operator") {
+        const details = nodeConnectionDetails.get(nodeId);
+        if (details?.primary && details?.secondary) {
+          primaryInput = details.primary;
+          secondaryInput = details.secondary;
+        } else {
+          // 如果没有明确的连接详情，回退到原来的逻辑
+          primaryInput = inputs[0];
+          secondaryInput = inputs[1];
+        }
+      } else {
+        // 对于observable类型的多输入节点，保持原来的逻辑
+        primaryInput = inputs[0];
+        secondaryInput = inputs[1];
+      }
 
       const primarySource$ = nodeObservables.get(primaryInput) || processOperator(primaryInput);
       const secondarySource$ = nodeObservables.get(secondaryInput) || processOperator(secondaryInput);
@@ -266,11 +333,122 @@ export const buildRxStream = (
         case "skipUntil":
           result$ = primarySource$.pipe(skipUntil(secondarySource$));
           break;
+        case "zip":
+          result$ = zip(primarySource$, secondarySource$);
+          break;
         case "buffer":
           result$ = primarySource$.pipe(buffer(secondarySource$));
           break;
         case "switchMapTo":
-          result$ = primarySource$.pipe(switchMapTo(secondarySource$));
+          // 自定义 switchMapTo 实现，确保次要输入每次都能重新订阅
+          result$ = new Observable(observer => {
+            let innerSubscription: Subscription | null = null;
+            let isCompleted = false;
+            let secondarySubscriptionId = `switchmapto_${node.id}_${Date.now()}`;
+
+            const outerSubscription = primarySource$.subscribe({
+              next: (value) => {
+                console.log(`SwitchMapTo ${node.id}: 收到外部值 ${value}`);
+
+                // 取消之前的内部订阅
+                if (innerSubscription) {
+                  console.log(`SwitchMapTo ${node.id}: 取消之前的内部订阅`);
+                  // 为次要输入节点发送 unsubscribe 事件
+                  eventSubject.next({
+                    type: "unsubscribe",
+                    nodeId: secondaryInput,
+                    subscriptionId: secondarySubscriptionId
+                  });
+                  innerSubscription.unsubscribe();
+                }
+
+                // 创建新的内部订阅 - 每次都重新获取次要输入的 Observable
+                console.log(`SwitchMapTo ${node.id}: 创建新的内部订阅`);
+
+                // 重新创建次要输入的 Observable，确保它是新鲜的
+                // 对于已经完成的 Observable，我们需要重新创建它
+                const freshSecondarySource$ = (() => {
+                  // 重新获取次要输入的原始 Observable
+                  const secondaryNode = nodes.find(n => n.id === secondaryInput);
+                  if (secondaryNode?.data.type === "observable") {
+                    // 如果是 Observable 源，重新创建它
+                    return nodeObservables.get(secondaryInput);
+                  } else {
+                    // 如果是操作符，直接使用已处理的 secondarySource$，避免递归调用
+                    return secondarySource$;
+                  }
+                })() || secondarySource$;
+
+                // 为次要输入节点发送 subscribe 事件，重置其状态
+                eventSubject.next({
+                  type: "subscribe",
+                  nodeId: secondaryInput,
+                  subscriptionId: secondarySubscriptionId
+                });
+
+                innerSubscription = freshSecondarySource$.subscribe({
+                  next: (innerValue) => {
+                    console.log(`SwitchMapTo ${node.id}: 内部订阅发出值 ${innerValue}`);
+                    observer.next(innerValue);
+                    eventSubject.next({
+                      type: "next",
+                      nodeId: node.id,
+                      value: innerValue
+                    });
+                  },
+                  error: (error) => {
+                    console.log(`SwitchMapTo ${node.id}: 内部订阅出错 ${error}`);
+                    observer.error(error);
+                    eventSubject.next({
+                      type: "error",
+                      nodeId: node.id,
+                      error
+                    });
+                  },
+                  complete: () => {
+                    console.log(`SwitchMapTo ${node.id}: 内部订阅完成`);
+                    if (isCompleted) {
+                      observer.complete();
+                      eventSubject.next({
+                        type: "complete",
+                        nodeId: node.id
+                      });
+                    }
+                  }
+                });
+              },
+              error: (error) => {
+                console.log(`SwitchMapTo ${node.id}: 外部订阅出错 ${error}`);
+                observer.error(error);
+                eventSubject.next({
+                  type: "error",
+                  nodeId: node.id,
+                  error
+                });
+              },
+              complete: () => {
+                console.log(`SwitchMapTo ${node.id}: 外部订阅完成`);
+                isCompleted = true;
+                if (!innerSubscription || innerSubscription.closed) {
+                  observer.complete();
+                  eventSubject.next({
+                    type: "complete",
+                    nodeId: node.id
+                  });
+                }
+              }
+            });
+
+            return () => {
+              console.log(`SwitchMapTo ${node.id}: 取消外部订阅`);
+              outerSubscription.unsubscribe();
+
+              if (innerSubscription) {
+                console.log(`SwitchMapTo ${node.id}: 取消内部订阅`);
+                innerSubscription.unsubscribe();
+              }
+            };
+          });
           break;
         default:
           result$ = primarySource$;
@@ -329,7 +507,51 @@ export const buildRxStream = (
           }
           break;
         case "take":
-          result$ = source$.pipe(take(node.data.config?.count || 5));
+          // 自定义 take 实现，确保每次重新订阅时都能重新开始计数
+          result$ = new Observable(observer => {
+            let count = 0;
+            const maxCount = node.data.config?.count || 5;
+
+            const subscription = source$.subscribe({
+              next: (value) => {
+                count++;
+                if (count <= maxCount) {
+                  observer.next(value);
+                  eventSubject.next({
+                    type: "next",
+                    nodeId: node.id,
+                    value
+                  });
+                }
+                if (count >= maxCount) {
+                  observer.complete();
+                  eventSubject.next({
+                    type: "complete",
+                    nodeId: node.id
+                  });
+                }
+              },
+              error: (error) => {
+                observer.error(error);
+                eventSubject.next({
+                  type: "error",
+                  nodeId: node.id,
+                  error
+                });
+              },
+              complete: () => {
+                observer.complete();
+                eventSubject.next({
+                  type: "complete",
+                  nodeId: node.id
+                });
+              }
+            });
+
+            return () => {
+              subscription.unsubscribe();
+            };
+          });
           break;
         case "skip":
           result$ = source$.pipe(skip(node.data.config?.count || 2));
@@ -451,7 +673,7 @@ export const buildRxStream = (
         subscriptions.push(subscription);
 
         // 发出 subscribe 事件
-        const subscribeEvent = {
+        const subscribeEvent: RxEvent = {
           type: "subscribe",
           nodeId: node.id,
           subscriptionId: subscriptionId

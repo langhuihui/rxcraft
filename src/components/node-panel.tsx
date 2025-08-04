@@ -44,19 +44,11 @@ interface NodeType {
 
 const observableNodes: NodeType[] = [
   {
-    id: "click",
-    name: "点击事件",
+    id: "mouse",
+    name: "鼠标事件",
     type: "observable",
     icon: <MousePointer className="w-4 h-4" />,
-    description: "监听鼠标点击，发出坐标",
-    color: "bg-blue-500",
-  },
-  {
-    id: "mousemove",
-    name: "鼠标移动",
-    type: "observable",
-    icon: <Move className="w-4 h-4" />,
-    description: "监听鼠标移动，发出坐标",
+    description: "监听鼠标事件，可选择具体事件类型",
     color: "bg-blue-500",
   },
   {
@@ -250,12 +242,21 @@ const observerNodes: NodeType[] = [
   },
 ];
 
-const NodePanel = () => {
+interface NodePanelProps {
+  isPlaying?: boolean;
+}
+
+const NodePanel = ({ isPlaying = false }: NodePanelProps) => {
   const [activeTab, setActiveTab] = useState<
     "observable" | "operator" | "observer"
   >("observable");
 
   const handleDragStart = (event: React.DragEvent, nodeType: NodeType) => {
+    // 播放状态下禁用拖拽
+    if (isPlaying) {
+      event.preventDefault();
+      return;
+    }
     event.dataTransfer.setData("application/json", JSON.stringify(nodeType));
   };
 
@@ -268,8 +269,12 @@ const NodePanel = () => {
         return (
           <Card
             key={node.id}
-            className="cursor-grab active:cursor-grabbing bg-slate-800 border-slate-700 hover:bg-slate-750 transition-colors"
-            draggable
+            className={`${
+              isPlaying
+                ? "cursor-not-allowed bg-slate-700 border-slate-600 opacity-50"
+                : "cursor-grab active:cursor-grabbing bg-slate-800 border-slate-700 hover:bg-slate-750"
+            } transition-colors`}
+            draggable={!isPlaying}
             onDragStart={(e) => handleDragStart(e, node)}
           >
             <CardContent className="p-3">
@@ -330,7 +335,14 @@ const NodePanel = () => {
   return (
     <div className="h-full flex flex-col">
       <div className="p-4 border-b border-slate-800">
-        <h2 className="text-lg font-semibold text-white mb-4">节点库</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-white">节点库</h2>
+          {isPlaying && (
+            <div className="text-xs text-slate-400 bg-slate-800 px-2 py-1 rounded">
+              🔒 已锁定
+            </div>
+          )}
+        </div>
         <div className="flex space-x-1 bg-slate-800 rounded-lg p-1">
           <Button
             variant={activeTab === "observable" ? "default" : "ghost"}

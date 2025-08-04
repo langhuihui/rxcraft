@@ -1,6 +1,15 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { Button } from "./ui/button";
-import { Play, Pause, Trash2, Code, LayoutGrid } from "lucide-react";
+import {
+  Play,
+  Pause,
+  Trash2,
+  Code,
+  LayoutGrid,
+  Database,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import NodePanel from "./node-panel";
 import WorkAreaWrapper from "./work-area";
 import { useNodesState, useEdgesState, Node } from "reactflow";
@@ -17,6 +26,7 @@ import {
 import MarbleDiagram from "./marble-diagram";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import CodeView from "./code-view";
+import JsonEditor from "./json-editor";
 import { Subject } from "rxjs";
 
 const RxVisualizer = () => {
@@ -35,6 +45,8 @@ const RxVisualizer = () => {
     new Map()
   );
   const [dataFlow, setDataFlow] = useState<any[]>([]);
+  const [showMarbleDiagram, setShowMarbleDiagram] = useState(true);
+  const [currentSample, setCurrentSample] = useState<Sample | null>(null);
 
   // 保持 ref 与 state 同步
   useEffect(() => {
@@ -161,17 +173,21 @@ const RxVisualizer = () => {
           break;
         case "unsubscribe":
           if (event.subscriptionId) {
+            console.log(
+              `Unsubscribe event with ID: ${event.nodeId}, ${event.subscriptionId}`
+            );
             setNodeSubscriptions((prev) => {
               const newMap = new Map(prev);
               const nodeSubs = new Map(newMap.get(event.nodeId) || []);
-              const currentStatus = nodeSubs.get(event.subscriptionId!);
-              // Only mark as cancelled if it was active and not already completed/errored
-              if (currentStatus === "active") {
-                nodeSubs.set(event.subscriptionId!, "cancelled");
-                newMap.set(event.nodeId, nodeSubs);
-              }
+              // 直接删除已取消的订阅，而不是标记为 cancelled
+              nodeSubs.delete(event.subscriptionId!);
+              newMap.set(event.nodeId, nodeSubs);
               return newMap;
             });
+          } else {
+            console.log(`Unsubscribe event without ID: ${event.nodeId}`);
+            // 对于没有 subscriptionId 的 unsubscribe 事件，我们可以选择忽略或者清除所有订阅
+            // 这里选择忽略，因为通常这种事件是清理事件
           }
           break;
       }
@@ -205,6 +221,26 @@ const RxVisualizer = () => {
     [setNodes] // 使用 ref 来避免依赖 isPlaying
   );
 
+  const updateNode = useCallback(
+    (nodeId: string, updates: any) => {
+      setNodes((nds) =>
+        nds.map((node) => {
+          if (node.id === nodeId) {
+            return { ...node, ...updates };
+          }
+          return node;
+        })
+      );
+
+      // 如果正在播放状态，重新启动以应用新配置
+      if (isPlayingRef.current) {
+        setIsPlaying(false);
+        setTimeout(() => setIsPlaying(true), 50);
+      }
+    },
+    [setNodes]
+  );
+
   const handlePlay = useCallback(() => {
     const newPlayingState = !isPlaying;
     setIsPlaying(newPlayingState);
@@ -219,6 +255,7 @@ const RxVisualizer = () => {
     setSubscriberLogs(new Map());
     setDataFlow([]);
     setNodeSubscriptions(new Map()); // Reset subscriptions on reset
+    setCurrentSample(null); // Reset current sample
   }, [setNodes, setEdges]);
 
   const handleSampleSelect = (sample: Sample) => {
@@ -233,6 +270,8 @@ const RxVisualizer = () => {
     // 加载新的示例
     setNodes(sample.nodes);
     setEdges(sample.edges);
+    // 设置当前示例
+    setCurrentSample(sample);
   };
 
   return (
@@ -248,12 +287,17 @@ const RxVisualizer = () => {
             onSampleSelect={handleSampleSelect}
             currentNodes={nodes}
             currentEdges={edges}
+            currentSample={currentSample}
           />
           <Button
             variant="outline"
             size="sm"
             onClick={handlePlay}
-            className="bg-slate-800 border-slate-700 hover:bg-slate-700"
+            className={`${
+              isPlaying
+                ? "bg-blue-600 border-blue-500 hover:bg-blue-700 text-white"
+                : "bg-slate-800 border-slate-700 hover:bg-slate-700"
+            } transition-colors`}
           >
             {isPlaying ? (
               <Pause className="w-4 h-4" />
@@ -271,18 +315,31 @@ const RxVisualizer = () => {
             <Trash2 className="w-4 h-4" />
             清空
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowMarbleDiagram(!showMarbleDiagram)}
+            className="bg-slate-800 border-slate-700 hover:bg-slate-700"
+          >
+            {showMarbleDiagram ? (
+              <EyeOff className="w-4 h-4" />
+            ) : (
+              <Eye className="w-4 h-4" />
+            )}
+            {showMarbleDiagram ? "隐藏" : "显示"}弹珠图
+          </Button>
           <ModeToggle />
         </div>
       </header>
 
       <div className="flex h-[calc(100vh-4rem)] relative">
         <div className="hidden md:block w-80 bg-slate-900 border-r border-slate-800">
-          <NodePanel />
+          <NodePanel isPlaying={isPlaying} />
         </div>
 
         {isNodePanelOpen && (
           <div className="md:hidden absolute top-0 left-0 h-full w-80 bg-slate-900 border-r border-slate-800 z-20 shadow-lg">
-            <NodePanel />
+            <NodePanel isPlaying={isPlaying} />
           </div>
         )}
 
@@ -298,6 +355,10 @@ const RxVisualizer = () => {
                   <Code className="w-4 h-4 mr-2" />
                   代码视图
                 </TabsTrigger>
+                <TabsTrigger value="json">
+                  <Database className="w-4 h-4 mr-2" />
+                  JSON编辑器
+                </TabsTrigger>
               </TabsList>
               <TabsContent value="canvas" className="flex-1">
                 <WorkAreaWrapper
@@ -311,17 +372,29 @@ const RxVisualizer = () => {
                   activeFlashes={activeFlashes}
                   subscriberLogs={subscriberLogs}
                   onUpdateNodeConfig={updateNodeConfig}
+                  isPlaying={isPlaying}
                 />
               </TabsContent>
               <TabsContent value="code" className="flex-1">
                 <CodeView nodes={nodes} edges={edges} />
               </TabsContent>
+              <TabsContent value="json" className="flex-1">
+                <JsonEditor
+                  nodes={nodes}
+                  edges={edges}
+                  onUpdateNodeConfig={updateNode}
+                />
+              </TabsContent>
             </Tabs>
           </ResizablePanel>
-          <ResizableHandle withHandle />
-          <ResizablePanel defaultSize={25}>
-            <MarbleDiagram events={dataFlow} nodes={nodes} />
-          </ResizablePanel>
+          {showMarbleDiagram && (
+            <>
+              <ResizableHandle withHandle />
+              <ResizablePanel defaultSize={25}>
+                <MarbleDiagram events={dataFlow} nodes={nodes} />
+              </ResizablePanel>
+            </>
+          )}
         </ResizablePanelGroup>
       </div>
     </div>

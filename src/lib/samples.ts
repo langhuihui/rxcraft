@@ -840,6 +840,394 @@ export const defaultSamples: Sample[] = [
       { id: "e-cold-1", source: "array-cold", target: "subscriber-cold-1", animated: true },
       { id: "e-cold-2", source: "array-cold", target: "subscriber-cold-2", animated: true }
     ],
+  },
+  {
+    id: "mouse-events-demo",
+    name: "鼠标事件演示",
+    description: "演示新的统一鼠标事件 Observable，可以选择不同的鼠标事件类型。",
+    nodes: [
+      {
+        id: "mouse-click",
+        type: "custom",
+        position: { x: 100, y: 100 },
+        data: {
+          id: "mouse",
+          name: "点击事件",
+          type: "observable",
+          description: "监听鼠标点击事件",
+          color: "bg-blue-500",
+          config: { eventType: "click" }
+        },
+      },
+      {
+        id: "mouse-move",
+        type: "custom",
+        position: { x: 100, y: 250 },
+        data: {
+          id: "mouse",
+          name: "鼠标移动",
+          type: "observable",
+          description: "监听鼠标移动事件",
+          color: "bg-blue-500",
+          config: { eventType: "mousemove" }
+        },
+      },
+      {
+        id: "mouse-down",
+        type: "custom",
+        position: { x: 100, y: 400 },
+        data: {
+          id: "mouse",
+          name: "鼠标按下",
+          type: "observable",
+          description: "监听鼠标按下事件",
+          color: "bg-blue-500",
+          config: { eventType: "mousedown" }
+        },
+      },
+      {
+        id: "map-click",
+        type: "custom",
+        position: { x: 400, y: 100 },
+        data: {
+          id: "map",
+          name: "Map",
+          type: "operator",
+          description: "转换点击事件",
+          color: "bg-purple-500",
+          config: { func: "e => `点击位置: (${e.x}, ${e.y})`" }
+        },
+      },
+      {
+        id: "map-move",
+        type: "custom",
+        position: { x: 400, y: 250 },
+        data: {
+          id: "map",
+          name: "Map",
+          type: "operator",
+          description: "转换移动事件",
+          color: "bg-purple-500",
+          config: { func: "e => `移动位置: (${e.x}, ${e.y})`" }
+        },
+      },
+      {
+        id: "map-down",
+        type: "custom",
+        position: { x: 400, y: 400 },
+        data: {
+          id: "map",
+          name: "Map",
+          type: "operator",
+          description: "转换按下事件",
+          color: "bg-purple-500",
+          config: { func: "e => `按下位置: (${e.x}, ${e.y}), 按钮: ${e.button}`" }
+        },
+      },
+      {
+        id: "subscriber-click",
+        type: "subscriber",
+        position: { x: 700, y: 100 },
+        data: {
+          id: "subscriber",
+          name: "点击订阅者",
+          type: "observer",
+          description: "显示点击事件",
+          color: "bg-teal-500"
+        },
+      },
+      {
+        id: "subscriber-move",
+        type: "subscriber",
+        position: { x: 700, y: 250 },
+        data: {
+          id: "subscriber",
+          name: "移动订阅者",
+          type: "observer",
+          description: "显示移动事件",
+          color: "bg-teal-500"
+        },
+      },
+      {
+        id: "subscriber-down",
+        type: "subscriber",
+        position: { x: 700, y: 400 },
+        data: {
+          id: "subscriber",
+          name: "按下订阅者",
+          type: "observer",
+          description: "显示按下事件",
+          color: "bg-teal-500"
+        },
+      }
+    ],
+    edges: [
+      { id: "e-mouse-1", source: "mouse-click", target: "map-click", animated: true },
+      { id: "e-mouse-2", source: "map-click", target: "subscriber-click", animated: true },
+      { id: "e-mouse-3", source: "mouse-move", target: "map-move", animated: true },
+      { id: "e-mouse-4", source: "map-move", target: "subscriber-move", animated: true },
+      { id: "e-mouse-5", source: "mouse-down", target: "map-down", animated: true },
+      { id: "e-mouse-6", source: "map-down", target: "subscriber-down", animated: true }
+    ],
+  },
+  {
+    id: "switchmapto-example",
+    name: "SwitchMapTo 示例",
+    description: "演示 SwitchMapTo 操作符如何在新事件到达时取消之前的订阅并重新订阅。",
+    nodes: [
+      {
+        id: "interval-primary",
+        type: "custom",
+        position: { x: 100, y: 100 },
+        data: {
+          id: "interval",
+          name: "主数据流 (1s)",
+          type: "observable",
+          description: "定期发出递增数字",
+          color: "bg-blue-500",
+          config: { period: 1000 }
+        },
+      },
+      {
+        id: "interval-secondary",
+        type: "custom",
+        position: { x: 100, y: 250 },
+        data: {
+          id: "interval",
+          name: "次要数据流 (500ms)",
+          type: "observable",
+          description: "快速发出递增数字",
+          color: "bg-blue-500",
+          config: { period: 500 }
+        },
+      },
+      {
+        id: "switchmapto-1",
+        type: "custom",
+        position: { x: 400, y: 175 },
+        data: {
+          id: "switchMapTo",
+          name: "SwitchMapTo",
+          type: "operator",
+          description: "切换到另一个Observable，取消之前的订阅",
+          color: "bg-purple-500",
+          multipleInputs: true
+        },
+      },
+      {
+        id: "map-switch",
+        type: "custom",
+        position: { x: 650, y: 175 },
+        data: {
+          id: "map",
+          name: "Map",
+          type: "operator",
+          description: "转换每个发出的值",
+          color: "bg-purple-500",
+          config: { func: "x => `SwitchMapTo值: ${x}`" }
+        },
+      },
+      {
+        id: "subscriber-switch",
+        type: "subscriber",
+        position: { x: 900, y: 175 },
+        data: {
+          id: "subscriber",
+          name: "订阅者",
+          type: "observer",
+          description: "显示接收到的值",
+          color: "bg-teal-500"
+        },
+      }
+    ],
+    edges: [
+      { id: "e-switch-1", source: "interval-primary", target: "switchmapto-1", animated: true, targetHandle: "primary" },
+      { id: "e-switch-2", source: "interval-secondary", target: "switchmapto-1", animated: true, targetHandle: "secondary" },
+      { id: "e-switch-3", source: "switchmapto-1", target: "map-switch", animated: true },
+      { id: "e-switch-4", source: "map-switch", target: "subscriber-switch", animated: true }
+    ],
+  },
+  {
+    id: "switchmapto-takeuntil-example",
+    name: "SwitchMapTo + Take 示例",
+    description: "演示 SwitchMapTo 操作符如何与 Take 组合，确保次要输入在完成后仍能重新订阅。",
+    nodes: [
+      {
+        id: "interval-primary",
+        type: "custom",
+        position: { x: 100, y: 100 },
+        data: {
+          id: "interval",
+          name: "主数据流 (2s)",
+          type: "observable",
+          description: "定期发出递增数字",
+          color: "bg-blue-500",
+          config: { period: 2000 }
+        },
+      },
+      {
+        id: "interval-secondary",
+        type: "custom",
+        position: { x: 100, y: 250 },
+        data: {
+          id: "interval",
+          name: "次要数据流 (500ms)",
+          type: "observable",
+          description: "快速发出递增数字",
+          color: "bg-blue-500",
+          config: { period: 500 }
+        },
+      },
+      {
+        id: "take-until",
+        type: "custom",
+        position: { x: 350, y: 250 },
+        data: {
+          id: "take",
+          name: "Take(3)",
+          type: "operator",
+          description: "只取前3个值",
+          color: "bg-purple-500",
+          config: { count: 3 }
+        },
+      },
+      {
+        id: "switchmapto-1",
+        type: "custom",
+        position: { x: 600, y: 175 },
+        data: {
+          id: "switchMapTo",
+          name: "SwitchMapTo",
+          type: "operator",
+          description: "切换到另一个Observable，取消之前的订阅",
+          color: "bg-purple-500",
+          multipleInputs: true
+        },
+      },
+      {
+        id: "map-switch",
+        type: "custom",
+        position: { x: 850, y: 175 },
+        data: {
+          id: "map",
+          name: "Map",
+          type: "operator",
+          description: "转换每个发出的值",
+          color: "bg-purple-500",
+          config: { func: "x => `SwitchMapTo值: ${x}`" }
+        },
+      },
+      {
+        id: "subscriber-switch",
+        type: "subscriber",
+        position: { x: 1100, y: 175 },
+        data: {
+          id: "subscriber",
+          name: "订阅者",
+          type: "observer",
+          description: "显示接收到的值",
+          color: "bg-teal-500"
+        },
+      }
+    ],
+    edges: [
+      { id: "e-switch-1", source: "interval-primary", target: "switchmapto-1", animated: true, targetHandle: "primary" },
+      { id: "e-switch-2", source: "interval-secondary", target: "take-until", animated: true },
+      { id: "e-switch-3", source: "take-until", target: "switchmapto-1", animated: true, targetHandle: "secondary" },
+      { id: "e-switch-4", source: "switchmapto-1", target: "map-switch", animated: true },
+      { id: "e-switch-5", source: "map-switch", target: "subscriber-switch", animated: true }
+    ],
+  },
+  {
+    id: "drag-example",
+    name: "拖动",
+    description: "演示鼠标拖拽的完整流程：按下鼠标开始拖动，移动鼠标跟踪位置，抬起鼠标结束拖动。使用 TakeUntil 和 SwitchMapTo 操作符实现。",
+    nodes: [
+      {
+        id: "mouse-down",
+        type: "custom",
+        position: { x: -30, y: -90 },
+        data: {
+          id: "mouse",
+          name: "鼠标按下",
+          type: "observable",
+          description: "监听鼠标按下事件",
+          color: "bg-blue-500",
+          config: { eventType: "mousedown" }
+        },
+      },
+      {
+        id: "mouse-move",
+        type: "custom",
+        position: { x: -201, y: -249 },
+        data: {
+          id: "mouse",
+          name: "鼠标移动",
+          type: "observable",
+          description: "监听鼠标移动事件",
+          color: "bg-blue-500",
+          config: { eventType: "mousemove" }
+        },
+      },
+      {
+        id: "mouse-up",
+        type: "custom",
+        position: { x: -69, y: -432 },
+        data: {
+          id: "mouse",
+          name: "鼠标抬起",
+          type: "observable",
+          description: "监听鼠标抬起事件",
+          color: "bg-blue-500",
+          config: { eventType: "mouseup" }
+        },
+      },
+      {
+        id: "takeuntil-1",
+        type: "custom",
+        position: { x: 123, y: -204 },
+        data: {
+          id: "takeUntil",
+          name: "TakeUntil",
+          type: "operator",
+          description: "发出值直到第二个Observable发出值",
+          color: "bg-purple-500",
+          multipleInputs: true
+        },
+      },
+      {
+        id: "switchmapto-1",
+        type: "custom",
+        position: { x: 347, y: -45 },
+        data: {
+          id: "switchMapTo",
+          name: "SwitchMapTo",
+          type: "operator",
+          description: "切换到另一个Observable",
+          color: "bg-purple-500",
+          multipleInputs: true
+        },
+      },
+      {
+        id: "subscriber-1",
+        type: "subscriber",
+        position: { x: 723, y: -124 },
+        data: {
+          id: "subscriber",
+          name: "订阅者",
+          type: "observer",
+          description: "订阅数据流并显示结果",
+          color: "bg-teal-500"
+        },
+      }
+    ],
+    edges: [
+      { id: "e-drag-1", source: "mouse-down", target: "switchmapto-1", animated: true, targetHandle: "primary" },
+      { id: "e-drag-2", source: "mouse-move", target: "takeuntil-1", animated: true, targetHandle: "primary" },
+      { id: "e-drag-3", source: "takeuntil-1", target: "switchmapto-1", animated: true, targetHandle: "secondary" },
+      { id: "e-drag-4", source: "mouse-up", target: "takeuntil-1", animated: true, targetHandle: "secondary" },
+      { id: "e-drag-5", source: "switchmapto-1", target: "subscriber-1", animated: true }
+    ],
   }
 ];
 

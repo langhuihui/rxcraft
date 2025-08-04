@@ -2,6 +2,7 @@ import React from "react";
 import { ThemeProvider } from "next-themes";
 import Layout from "./layout";
 import RxVisualizer from "./components/rx-visualizer";
+import { Toaster } from "./components/ui/toaster";
 
 const App = () => {
   return (
@@ -13,6 +14,7 @@ const App = () => {
     >
       <Layout>
         <RxVisualizer />
+        <Toaster />
       </Layout>
     </ThemeProvider>
   );

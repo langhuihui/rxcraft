@@ -45,12 +45,14 @@ interface SampleLibraryProps {
   onSampleSelect: (sample: Sample) => void;
   currentNodes: Node[];
   currentEdges: Edge[];
+  currentSample: Sample | null;
 }
 
 const SampleLibrary: React.FC<SampleLibraryProps> = ({
   onSampleSelect,
   currentNodes,
   currentEdges,
+  currentSample,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
@@ -62,11 +64,29 @@ const SampleLibrary: React.FC<SampleLibraryProps> = ({
   const [importError, setImportError] = useState("");
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [sampleToDelete, setSampleToDelete] = useState<string | null>(null);
+  const [isOverwriteMode, setIsOverwriteMode] = useState(false);
 
   // 加载所有示例
   useEffect(() => {
     setAllSamples(samples());
   }, [isOpen]);
+
+  // 当打开保存对话框时，检测是否可以覆盖
+  const handleOpenSaveDialog = () => {
+    if (currentSample && currentSample.id.startsWith("user-")) {
+      // 当前打开的是用户保存的示例，可以覆盖
+      setSampleName(currentSample.name);
+      setSampleDescription(currentSample.description || "");
+      setIsOverwriteMode(true);
+    } else {
+      // 当前打开的是默认示例或没有示例，创建新的
+      setSampleName("");
+      setSampleDescription("");
+      setIsOverwriteMode(false);
+    }
+    setIsSaveDialogOpen(true);
+    setIsOpen(false);
+  };
 
   const handleSelect = (sample: Sample) => {
     onSampleSelect(sample);
@@ -80,7 +100,10 @@ const SampleLibrary: React.FC<SampleLibraryProps> = ({
     }
 
     const newSample: Sample = {
-      id: `user-${Date.now()}`,
+      id:
+        isOverwriteMode && currentSample
+          ? currentSample.id
+          : `user-${Date.now()}`,
       name: sampleName,
       description: sampleDescription || "用户保存的示例",
       nodes: currentNodes,
@@ -91,6 +114,7 @@ const SampleLibrary: React.FC<SampleLibraryProps> = ({
     setIsSaveDialogOpen(false);
     setSampleName("");
     setSampleDescription("");
+    setIsOverwriteMode(false);
     setAllSamples(samples());
   };
 
@@ -235,10 +259,7 @@ const SampleLibrary: React.FC<SampleLibraryProps> = ({
                   <Button
                     variant="outline"
                     className="mt-4"
-                    onClick={() => {
-                      setIsSaveDialogOpen(true);
-                      setIsOpen(false);
-                    }}
+                    onClick={handleOpenSaveDialog}
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     保存当前画布
@@ -312,13 +333,7 @@ const SampleLibrary: React.FC<SampleLibraryProps> = ({
 
           <DialogFooter className="flex justify-between">
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setIsSaveDialogOpen(true);
-                  setIsOpen(false);
-                }}
-              >
+              <Button variant="outline" onClick={handleOpenSaveDialog}>
                 <Save className="w-4 h-4 mr-2" />
                 保存当前画布
               </Button>
@@ -345,12 +360,23 @@ const SampleLibrary: React.FC<SampleLibraryProps> = ({
       <Dialog open={isSaveDialogOpen} onOpenChange={setIsSaveDialogOpen}>
         <DialogContent className="sm:max-w-[500px] bg-slate-900 border-slate-800 text-white">
           <DialogHeader>
-            <DialogTitle>保存示例</DialogTitle>
+            <DialogTitle>
+              {isOverwriteMode ? "覆盖示例" : "保存示例"}
+            </DialogTitle>
             <DialogDescription>
-              将当前画布保存为示例，以便日后使用。
+              {isOverwriteMode
+                ? "将当前画布覆盖到当前打开的示例。"
+                : "将当前画布保存为示例，以便日后使用。"}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {isOverwriteMode && (
+              <div className="p-3 bg-blue-900/20 border border-blue-700 rounded-md">
+                <p className="text-blue-300 text-sm">
+                  将覆盖当前打开的示例：{currentSample?.name}
+                </p>
+              </div>
+            )}
             <div>
               <Label htmlFor="sample-name">示例名称</Label>
               <Input
@@ -378,7 +404,14 @@ const SampleLibrary: React.FC<SampleLibraryProps> = ({
             >
               取消
             </Button>
-            <Button onClick={handleSaveSample}>保存</Button>
+            <Button
+              onClick={handleSaveSample}
+              className={
+                isOverwriteMode ? "bg-orange-600 hover:bg-orange-700" : ""
+              }
+            >
+              {isOverwriteMode ? "覆盖" : "保存"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
